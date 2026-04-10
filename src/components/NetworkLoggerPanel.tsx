@@ -185,7 +185,7 @@ export const NetworkLoggerPanel = () => {
     >
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={[styles.header, { borderBottomColor: theme.border }]}>
-          <Text style={[styles.title, { color: theme.text }]}>Network Logger</Text>
+          <Text style={[styles.title, { color: theme.text }]}>Dev Tool</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity
               onPress={handleClear}

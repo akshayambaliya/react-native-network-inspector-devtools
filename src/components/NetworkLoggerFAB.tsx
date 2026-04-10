@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef } from "react";
 import {
   Animated,
   Dimensions,
@@ -7,12 +7,12 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { useNetworkLogger } from '../context/NetworkLoggerContext';
-import { useTheme } from '../theme';
+import { useNetworkLogger } from "../context/NetworkLoggerContext";
+import { useTheme } from "../theme";
 
-const FAB_SIZE = 52;
+const FAB_SIZE = 40;
 const DEFAULT_BOTTOM = 90;
 const DEFAULT_RIGHT = 16;
 /** Minimum movement in pixels before a drag gesture is recognised. */
@@ -33,13 +33,18 @@ interface Props {
    * peer dependencies required.
    */
   draggable?: boolean;
+  /**
+   * Show a green ping animation on the FAB when at least one mock is enabled.
+   * Defaults to `true`. Pass `false` to disable the indicator.
+   */
+  showMockIndicator?: boolean;
 }
 
 /** Converts the `position` prop (bottom/right or top/left) to absolute x/y (top-left origin). */
 function resolveInitialPosition(
-  position: Props['position'],
+  position: Props["position"],
   windowWidth: number,
-  windowHeight: number
+  windowHeight: number,
 ): { x: number; y: number } {
   const x =
     position?.left !== undefined
@@ -54,15 +59,132 @@ function resolveInitialPosition(
   return { x, y };
 }
 
-export const NetworkLoggerFAB = ({ position, draggable = true }: Props = {}) => {
-  const { entries, dispatch } = useNetworkLogger();
+/** Small static green dot shown on the FAB corner when mocks are active. */
+const MockDot = ({ color }: { color: string }) => (
+  <View style={[dotStyles.dot, { backgroundColor: color }]} />
+);
+
+const dotStyles = StyleSheet.create({
+  dot: {
+    position: "absolute",
+    top: -2,
+    left: -2,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: "#fff",
+  },
+});
+
+/**
+ * Dev-tool icon: code brackets </> stacked above a three-bar "signal/network"
+ * wave indicator — drawn purely with React Native View primitives.
+ */
+const DevToolIcon = ({ color }: { color: string }) => (
+  <View style={iconStyles.wrapper}>
+    {/* Network signal bars (3 bars, ascending height) */}
+    <View style={iconStyles.signalRow}>
+      <View
+        style={[iconStyles.bar, iconStyles.bar1, { backgroundColor: color }]}
+      />
+      <View
+        style={[iconStyles.bar, iconStyles.bar2, { backgroundColor: color }]}
+      />
+      <View
+        style={[iconStyles.bar, iconStyles.bar3, { backgroundColor: color }]}
+      />
+      <View
+        style={[iconStyles.bar, iconStyles.bar4, { backgroundColor: color }]}
+      />
+    </View>
+  </View>
+);
+
+const iconStyles = StyleSheet.create({
+  wrapper: {
+    alignItems: "center",
+    gap: 5,
+  },
+  /* ── </> ── */
+  codeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  bracketLeft: {
+    width: 6,
+    height: 12,
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
+  bracketTopLeft: {
+    width: 6,
+    height: 2,
+    borderTopLeftRadius: 1,
+    transform: [{ rotate: "-35deg" }, { translateY: 1 }],
+  },
+  bracketBottomLeft: {
+    width: 6,
+    height: 2,
+    borderBottomLeftRadius: 1,
+    transform: [{ rotate: "35deg" }, { translateY: -1 }],
+  },
+  slash: {
+    width: 2,
+    height: 13,
+    borderRadius: 1,
+    transform: [{ rotate: "-20deg" }],
+  },
+  bracketRight: {
+    width: 6,
+    height: 12,
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  bracketTopRight: {
+    width: 6,
+    height: 2,
+    borderTopRightRadius: 1,
+    transform: [{ rotate: "35deg" }, { translateY: 1 }],
+  },
+  bracketBottomRight: {
+    width: 6,
+    height: 2,
+    borderBottomRightRadius: 1,
+    transform: [{ rotate: "-35deg" }, { translateY: -1 }],
+  },
+  /* ── signal bars ── */
+  signalRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  bar: {
+    width: 4,
+    borderRadius: 2,
+  },
+  bar1: { height: 4 },
+  bar2: { height: 7 },
+  bar3: { height: 10 },
+  bar4: { height: 13 },
+});
+
+export const NetworkLoggerFAB = ({
+  position,
+  draggable = true,
+  showMockIndicator = true,
+}: Props = {}) => {
+  const { entries, mocks, dispatch } = useNetworkLogger();
   const theme = useTheme();
+
+  const hasActiveMocks = mocks.some((m) => m.enabled);
 
   // Compute initial top/left once; subsequent renders must not re-evaluate
   // because PanResponder and Animated.ValueXY are initialised from this.
   const initialPosition = useRef<{ x: number; y: number }>(null as any);
   if (initialPosition.current === null) {
-    const { width, height } = Dimensions.get('window');
+    const { width, height } = Dimensions.get("window");
     initialPosition.current = resolveInitialPosition(position, width, height);
   }
 
@@ -98,15 +220,15 @@ export const NetworkLoggerFAB = ({ position, draggable = true }: Props = {}) => 
       }),
 
       onPanResponderRelease: (_evt, gestureState) => {
-        const { width, height } = Dimensions.get('window');
+        const { width, height } = Dimensions.get("window");
         // Clamp so the FAB always stays fully visible on screen.
         const clampedX = Math.max(
           0,
-          Math.min(committed.current.x + gestureState.dx, width - FAB_SIZE)
+          Math.min(committed.current.x + gestureState.dx, width - FAB_SIZE),
         );
         const clampedY = Math.max(
           0,
-          Math.min(committed.current.y + gestureState.dy, height - FAB_SIZE)
+          Math.min(committed.current.y + gestureState.dy, height - FAB_SIZE),
         );
         committed.current = { x: clampedX, y: clampedY };
         // Reset offset and set the final value directly.
@@ -119,16 +241,20 @@ export const NetworkLoggerFAB = ({ position, draggable = true }: Props = {}) => 
         pan.setOffset({ x: 0, y: 0 });
         pan.setValue(committed.current);
       },
-    })
+    }),
   ).current;
 
   const count = entries.length;
-  const badge = count > 99 ? '99+' : String(count);
+  const badge = count > 99 ? "99+" : String(count);
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">
       <Animated.View
-        style={[styles.fab, { backgroundColor: theme.primary }, pan.getLayout()]}
+        style={[
+          styles.fab,
+          { backgroundColor: theme.primary },
+          pan.getLayout(),
+        ]}
         {...panResponder.panHandlers}
       >
         {/*
@@ -137,16 +263,19 @@ export const NetworkLoggerFAB = ({ position, draggable = true }: Props = {}) => 
          */}
         <TouchableOpacity
           style={styles.fabTouchable}
-          onPress={() => dispatch({ type: 'SET_VISIBLE', payload: true })}
+          onPress={() => dispatch({ type: "SET_VISIBLE", payload: true })}
           accessibilityRole="button"
           accessibilityLabel="Open Network Logger"
           activeOpacity={0.8}
         >
-          <Text style={styles.icon}>📡</Text>
+          <DevToolIcon color="#FFFFFF" />
           {count > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{badge}</Text>
             </View>
+          )}
+          {showMockIndicator && hasActiveMocks && (
+            <MockDot color={theme.success} />
           )}
         </TouchableOpacity>
       </Animated.View>
@@ -160,42 +289,40 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
     elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   fabTouchable: {
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  icon: {
-    fontSize: 24,
+    justifyContent: "center",
+    alignItems: "center",
   },
   badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#E32222',
+    position: "absolute",
+    top: -2,
+    right: -2,
+    backgroundColor: "#E32222",
     borderRadius: 10,
     minWidth: 20,
     height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });
-

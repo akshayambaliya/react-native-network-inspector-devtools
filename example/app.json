@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "NetworkLogger Demo",
+    "slug": "rn-network-logger-example",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#111827"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.rnnetworklogger"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#111827"
+      },
+      "package": "com.example.rnnetworklogger"
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}
