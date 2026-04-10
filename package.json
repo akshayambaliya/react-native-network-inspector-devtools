@@ -1,0 +1,88 @@
+{
+  "name": "react-native-network-inspector-devtools",
+  "version": "0.1.1",
+  "description": "In-app network request logger and mocker for React Native. Captures axios traffic, renders a QA-friendly panel, and supports per-request response mocking.",
+  "license": "MIT",
+  "author": "Akshay Ambaliya",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/akshayambaliya/react-native-network-inspector-devtools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/akshayambaliya/react-native-network-inspector-devtools/issues"
+  },
+  "homepage": "https://github.com/akshayambaliya/react-native-network-inspector-devtools#readme",
+  "main": "lib/commonjs/index.js",
+  "module": "lib/module/index.js",
+  "types": "lib/typescript/src/index.d.ts",
+  "source": "src/index.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "import": "./lib/module/index.js",
+      "require": "./lib/commonjs/index.js",
+      "types": "./lib/typescript/src/index.d.ts"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "src",
+    "lib",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "bob build",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "prepare": "bob build"
+  },
+  "keywords": [
+    "react-native",
+    "network",
+    "logger",
+    "debugger",
+    "axios",
+    "interceptor",
+    "mock",
+    "react-native-network-inspector-devtools",
+    "react-native-network-mock",
+    "react-native-network-inspector",
+    "qa"
+  ],
+  "peerDependencies": {
+    "@react-native-clipboard/clipboard": ">=1.0.0",
+    "axios": ">=1.0.0",
+    "react": ">=18.0.0",
+    "react-native": ">=0.73.0"
+  },
+  "peerDependenciesMeta": {
+    "@react-native-clipboard/clipboard": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "axios": "^1.7.0",
+    "react": "18.3.1",
+    "react-native": "0.76.0",
+    "react-native-builder-bob": "^0.30.0",
+    "typescript": "^5.4.0"
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      "commonjs",
+      "module",
+      [
+        "typescript",
+        {
+          "project": "tsconfig.json"
+        }
+      ]
+    ]
+  }
+}
