@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { Share, StyleSheet, Text, TouchableOpacity } from 'react-native';
 
-import { getDefaultClipboard } from '../utils/clipboard';
 import { useTheme } from '../theme';
 
 interface Props {
@@ -9,49 +8,27 @@ interface Props {
   label?: string;
 }
 
-export const CopyButton = ({ value, label = 'Copy' }: Props) => {
-  const [copied, setCopied] = useState(false);
+export const CopyButton = ({ value, label = 'Export' }: Props) => {
   const theme = useTheme();
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) clearTimeout(timerRef.current);
-    };
-  }, []);
-
-  const handleCopy = async () => {
+  const handleExport = async () => {
     if (!value) return;
-
-    // Try native clipboard first (auto-detected from @react-native-clipboard/clipboard)
-    const clipboard = getDefaultClipboard();
-    if (clipboard) {
-      clipboard(value);
-    } else {
-      // Fallback: share sheet — always available, no extra dependency
-      try {
-        await Share.share({ message: value });
-      } catch {
-        // User dismissed share sheet — not an error
-      }
+    try {
+      await Share.share({ message: value });
+    } catch {
+      // User dismissed share sheet — not an error
     }
-
-    setCopied(true);
-    if (timerRef.current !== null) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <TouchableOpacity
-      onPress={handleCopy}
+      onPress={handleExport}
       activeOpacity={0.7}
       accessibilityRole="button"
-      accessibilityLabel={`Copy ${label}`}
+      accessibilityLabel={`Export ${label}`}
       style={[styles.button, { backgroundColor: theme.card }]}
     >
-      <Text style={[styles.text, { color: theme.textSecondary }]}>
-        {copied ? '✓ Copied' : label}
-      </Text>
+      <Text style={[styles.text, { color: theme.textSecondary }]}>Export</Text>
     </TouchableOpacity>
   );
 };
@@ -67,4 +44,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+
 

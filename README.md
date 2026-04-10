@@ -1,15 +1,15 @@
 <div align="center">
 
-<h1>rn-network-logger</h1>
+<h1>react-native-network-inspector-devtools</h1>
 
 <p>In-app network request logger and response mocker for React Native — built for QA and debug builds.</p>
 
-[![npm version](https://img.shields.io/npm/v/rn-network-logger?style=flat-square&color=blue)](https://www.npmjs.com/package/rn-network-logger)
-[![npm downloads](https://img.shields.io/npm/dm/rn-network-logger?style=flat-square&color=green)](https://www.npmjs.com/package/rn-network-logger)
-[![license](https://img.shields.io/npm/l/rn-network-logger?style=flat-square&color=brightgreen)](./LICENSE)
-[![bundle size](https://img.shields.io/bundlephobia/minzip/rn-network-logger?style=flat-square&label=minzipped)](https://bundlephobia.com/package/rn-network-logger)
+[![npm version](https://img.shields.io/npm/v/react-native-network-inspector-devtools?style=flat-square&color=blue)](https://www.npmjs.com/package/react-native-network-inspector-devtools)
+[![npm downloads](https://img.shields.io/npm/dm/react-native-network-inspector-devtools?style=flat-square&color=green)](https://www.npmjs.com/package/react-native-network-inspector-devtools)
+[![license](https://img.shields.io/npm/l/react-native-network-inspector-devtools?style=flat-square&color=brightgreen)](./LICENSE)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/react-native-network-inspector-devtools?style=flat-square&label=minzipped)](https://bundlephobia.com/package/react-native-network-inspector-devtools)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/akshayambaliya/rn-network-logger/pulls)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/akshayambaliya/react-native-network-inspector-devtools/pulls)
 
 </div>
 
@@ -24,7 +24,7 @@ Tap the floating button inside your app to inspect every outgoing axios request 
 - [Features](#features)
 - [Installation](#installation)
   - [Peer Dependencies](#peer-dependencies)
-  - [Optional — Clipboard Support](#optional--clipboard-support)
+
 - [Quick Start](#quick-start)
 - [Usage Examples](#usage-examples)
   - [Multiple Axios Instances](#1-multiple-axios-instances)
@@ -55,8 +55,7 @@ Tap the floating button inside your app to inspect every outgoing axios request 
 | **One-component setup** | A single `<NetworkLogger>` wrapper replaces all manual wiring. |
 | **Live request inspector** | View URL, method, headers, request body, response body, status, and duration for every request. |
 | **Search & filter** | Filter logs by URL or HTTP method in real time. |
-| **Export logs** | Share any request/response as formatted JSON via the native share sheet. |
-| **Copy anywhere** | Copy individual fields, sections, or headers with one tap. |
+| **Export logs** | Share any request/response as formatted JSON via the native share sheet — on every field, section header, and from the detail screen header. |
 | **Response mocking** | Force any endpoint to return a custom response without touching the server. |
 | **Mock variants** | Each rule carries multiple response scenarios; QA switches between them instantly at runtime without restarting the app. |
 | **Developer preset mocks** | Pass `initialMocks` to pre-load rules at startup — they appear with a **PRESET** badge in the panel. |
@@ -77,13 +76,13 @@ Tap the floating button inside your app to inspect every outgoing axios request 
 
 ```bash
 # npm
-npm install rn-network-logger
+npm install react-native-network-inspector-devtools
 
 # yarn
-yarn add rn-network-logger
+yarn add react-native-network-inspector-devtools
 
 # pnpm
-pnpm add rn-network-logger
+pnpm add react-native-network-inspector-devtools
 ```
 
 ### Peer Dependencies
@@ -100,14 +99,6 @@ npm install axios react react-native
 | `react-native` | `>=0.73.0` |
 | `axios` | `>=1.0.0` |
 
-### Optional — Clipboard Support
-
-Copy buttons use `@react-native-clipboard/clipboard` when available. If the package is absent, tapping copy falls back to the native share sheet — so **copy always works with zero extra configuration**.
-
-```bash
-npm install @react-native-clipboard/clipboard
-```
-
 ---
 
 ## Quick Start
@@ -117,7 +108,7 @@ Wrap your app root with `<NetworkLogger>` and you are done. A floating 🌐 butt
 ```tsx
 // App.tsx
 import React from 'react';
-import { NetworkLogger } from 'rn-network-logger';
+import { NetworkLogger } from 'react-native-network-inspector-devtools';
 
 import { apiClient } from './src/api'; // your axios instance
 import { RootNavigator } from './src/navigation';
@@ -142,7 +133,7 @@ export default function App() {
 Intercept every client your app uses by passing an array. `instance` and `instances` can be combined.
 
 ```tsx
-import { NetworkLogger } from 'rn-network-logger';
+import { NetworkLogger } from 'react-native-network-inspector-devtools';
 import { apiClient, legacyClient, uploadClient } from './src/api';
 
 export default function App() {
@@ -164,8 +155,8 @@ export default function App() {
 Seed the **Presets** tab with predefined responses at startup — no UI interaction needed. The mocks are ready the moment the app opens.
 
 ```tsx
-import { NetworkLogger } from 'rn-network-logger';
-import type { MockPreset } from 'rn-network-logger';
+import { NetworkLogger } from 'react-native-network-inspector-devtools';
+import type { MockPreset } from 'react-native-network-inspector-devtools';
 
 const devMocks: MockPreset[] = [
   // Simple single-response mock
@@ -266,7 +257,7 @@ import {
   NetworkLoggerAxiosInterceptor,
   NetworkLoggerFAB,
   NetworkLoggerPanel,
-} from 'rn-network-logger';
+} from 'react-native-network-inspector-devtools';
 import { apiClient, uploadClient } from './src/api';
 
 export default function App() {
@@ -369,7 +360,7 @@ The floating 🌐 button that opens the panel.
 All-in-one component. Renders the provider, interceptor(s), FAB, and panel in one step. Recommended for the vast majority of use cases.
 
 ```tsx
-import { NetworkLogger } from 'rn-network-logger';
+import { NetworkLogger } from 'react-native-network-inspector-devtools';
 ```
 
 ---
@@ -379,7 +370,7 @@ import { NetworkLogger } from 'rn-network-logger';
 Context provider. Use directly only when you need the [manual setup](#4-manual-setup-for-full-rendering-control) pattern.
 
 ```tsx
-import { NetworkLoggerProvider } from 'rn-network-logger';
+import { NetworkLoggerProvider } from 'react-native-network-inspector-devtools';
 ```
 
 ---
@@ -389,7 +380,7 @@ import { NetworkLoggerProvider } from 'rn-network-logger';
 Attaches axios request/response interceptors for a single instance. Must be rendered inside `<NetworkLoggerProvider>`. Cleans up automatically on unmount.
 
 ```tsx
-import { NetworkLoggerAxiosInterceptor } from 'rn-network-logger';
+import { NetworkLoggerAxiosInterceptor } from 'react-native-network-inspector-devtools';
 // Props: instance: AxiosInstance
 ```
 
@@ -400,7 +391,7 @@ import { NetworkLoggerAxiosInterceptor } from 'rn-network-logger';
 The floating 🌐 button that opens the panel. Draggable by default.
 
 ```tsx
-import { NetworkLoggerFAB } from 'rn-network-logger';
+import { NetworkLoggerFAB } from 'react-native-network-inspector-devtools';
 ```
 
 ---
@@ -410,7 +401,7 @@ import { NetworkLoggerFAB } from 'rn-network-logger';
 The full-screen modal panel. Controlled by the context's `isVisible` state; opened/closed by the FAB or `dispatch({ type: 'SET_VISIBLE', payload: true })`. Accepts no props.
 
 ```tsx
-import { NetworkLoggerPanel } from 'rn-network-logger';
+import { NetworkLoggerPanel } from 'react-native-network-inspector-devtools';
 ```
 
 ---
@@ -420,7 +411,7 @@ import { NetworkLoggerPanel } from 'rn-network-logger';
 Access the full logger state and dispatch function from any component inside the provider tree. Throws a descriptive error when called outside the provider.
 
 ```ts
-import { useNetworkLogger } from 'rn-network-logger';
+import { useNetworkLogger } from 'react-native-network-inspector-devtools';
 
 const {
   entries,        // NetworkLogEntry[]             — all captured log entries
@@ -439,7 +430,7 @@ const {
 Low-level programmatic interceptor installation. Use **only** when you cannot render `<NetworkLoggerAxiosInterceptor>` — for example when the axios instance lives outside the React tree. Returns a cleanup function.
 
 ```ts
-import { installInterceptors } from 'rn-network-logger';
+import { installInterceptors } from 'react-native-network-inspector-devtools';
 
 const cleanup = installInterceptors(axiosInstance, dispatchRef, activeMocksRef);
 // call cleanup() to eject interceptors and clear internal state
@@ -479,7 +470,7 @@ import type {
 
   // Theme
   Theme,
-} from 'rn-network-logger';
+} from 'react-native-network-inspector-devtools';
 ```
 
 **Key type distinctions:**
@@ -526,7 +517,7 @@ No. Pass `enabled={__DEV__}` and the entire library is a no-op in production —
 <details>
 <summary><strong>I set status 400 on a mock but my catch block never fires. Why?</strong></summary>
 
-Some network logger libraries use a custom axios adapter that bypasses `validateStatus`, meaning 4xx/5xx responses resolve instead of rejecting. `rn-network-logger` correctly throws an `axios.AxiosError` with `error.response` fully populated for any mocked error status, so your catch block fires exactly as it would with a real server error.
+Some network logger libraries use a custom axios adapter that bypasses `validateStatus`, meaning 4xx/5xx responses resolve instead of rejecting. `react-native-network-inspector-devtools` correctly throws an `axios.AxiosError` with `error.response` fully populated for any mocked error status, so your catch block fires exactly as it would with a real server error.
 
 </details>
 
@@ -578,8 +569,8 @@ Contributions are welcome. Please open an issue to discuss a change before submi
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/akshayambaliya/rn-network-logger.git
-cd rn-network-logger
+git clone https://github.com/akshayambaliya/react-native-network-inspector-devtools.git
+cd react-native-network-inspector-devtools
 
 # 2. Install dependencies
 npm install
