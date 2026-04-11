@@ -70,10 +70,6 @@ Tap the floating button inside your app to inspect every outgoing axios request 
   - [\<NetworkLoggerFAB\> Props](#networkloggerfab-props)
   - [MockPreset Options](#mockpreset-options)
 - [API Reference](#api-reference)
-- [TypeScript](#typescript)
-- [How Mock Variants Work](#how-mock-variants-work)
-- [FAQ](#faq)
-- [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [Changelog](#changelog)
 - [License](#license)
@@ -309,7 +305,7 @@ Every mock rule has a `matchType` that controls how its `urlPattern` is compared
 
 `exact` (score 3M+) → `regex` (score 2M+) → `contains` (score 1M+)
 
-Within the same type, the longer pattern wins. User-added mocks always beat presets at every tier. This means a short `contains` pattern like `/payments` never shadows a more specific regex like `/payments/[^/]+/execution`.
+Within the same type, the longer pattern wins. User-added mocks always beat presets at every tier. This means a short `contains` pattern like `/users` never shadows a more specific regex like `/users/[^/]+/details`.
 
 ---
 
