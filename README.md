@@ -40,12 +40,12 @@ Tap the floating button inside your app to inspect every outgoing axios request 
     <td align="center" width="50%">
       <h3>✏️&nbsp; Add Mock</h3>
       <p>Manually create a mock rule for any endpoint. Choose URL match type (<code>contains</code>, <code>exact</code>, or <code>regex</code>), set the status code, body, and optional delay.</p>
-      <video src="https://raw.githubusercontent.com/akshayambaliya/images/refs/heads/main/Add%20Mock.mov" width="320" controls muted></video>
+      <video src="https://github.com/user-attachments/assets/670d4325-e82a-48a2-8a17-3d07cff35c09" width="320" controls muted></video>
     </td>
     <td align="center" width="50%">
       <h3>🔄&nbsp; Presets with Variants</h3>
       <p>Pre-load mock rules at startup via <code>initialMocks</code>. Each rule can carry multiple named variants (Success, Unauthorized, Server Error…) switch between them at runtime with one tap.</p>
-      <video src="https://raw.githubusercontent.com/akshayambaliya/images/refs/heads/main/Presets_With_Varients_High.mov" width="320" controls muted></video>
+      <video src="https://github.com/user-attachments/assets/24ed25d3-57db-4566-8fc3-5b7ab96ba9ae" width="320" controls muted></video>
     </td>
   </tr>
 </table>
