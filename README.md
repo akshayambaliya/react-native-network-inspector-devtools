@@ -28,24 +28,34 @@ Tap the floating button inside your app to inspect every outgoing axios request 
     <td align="center" width="50%">
       <h3>🔍&nbsp; Request Logs</h3>
       <p>Inspect every axios request in real time URL, method, status, headers, request &amp; response bodies, and duration. Filter by method or search by URL.</p>
-      <video src="https://raw.githubusercontent.com/akshayambaliya/images/ca1005b8190ecde445bfe033525e50ca03552b3c/Logs_Final.mov" width="320" controls muted></video>
+      <a href="https://github.com/user-attachments/assets/eb35178a-deb8-49a4-aac6-e713739a4503">
+        <img src="https://raw.githubusercontent.com/akshayambaliya/images/ca1005b8190ecde445bfe033525e50ca03552b3c/Simulator%20Screenshot%20-%20iPhone%2015%20Pro%2018.1%20-%202026-04-10%20at%2022.08.22.png" width="320" alt="Request Logs Demo" />
+      </a>
     </td>
     <td align="center" width="50%">
       <h3>🎭&nbsp; Mock from Existing API</h3>
       <p>Tap <strong>Mock</strong> on any live log row to instantly pre-fill the mock editor with its URL, method, and response no copy pasting required.</p>
-      <video src="https://raw.githubusercontent.com/akshayambaliya/images/refs/heads/main/Mock_From_Exiting_Api.mov" width="320" controls muted></video>
+      <a href="https://github.com/user-attachments/assets/cff80803-1255-4c7f-8f3a-65b1a10bdf87">
+        <img src="https://raw.githubusercontent.com/akshayambaliya/images/6f50d59417c5092aa565fb60c5d0704bbf5f51e6/Simulator%20Screenshot%20-%20iPhone%2015%20Pro%2018.1%20-%202026-04-12%20at%2009.54.04.png" width="300" alt="Mock from Existing API Demo 1" />
+        <img src="https://raw.githubusercontent.com/akshayambaliya/images/6f50d59417c5092aa565fb60c5d0704bbf5f51e6/Simulator%20Screenshot%20-%20iPhone%2015%20Pro%2018.1%20-%202026-04-12%20at%2009.54.13.png" width="300" alt="Mock from Existing API Demo 2" />
+      </a>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
       <h3>✏️&nbsp; Add Mock</h3>
       <p>Manually create a mock rule for any endpoint. Choose URL match type (<code>contains</code>, <code>exact</code>, or <code>regex</code>), set the status code, body, and optional delay.</p>
-      <video src="https://raw.githubusercontent.com/akshayambaliya/images/refs/heads/main/Add%20Mock.mov" width="320" controls muted></video>
+       <a href="https://github.com/user-attachments/assets/670d4325-e82a-48a2-8a17-3d07cff35c09">
+        <img src="https://raw.githubusercontent.com/akshayambaliya/images/ca1005b8190ecde445bfe033525e50ca03552b3c/Simulator%20Screenshot%20-%20iPhone%2015%20Pro%2018.1%20-%202026-04-10%20at%2022.08.29.png" width="320" alt="Mock from Existing API Demo" />
+      </a>
     </td>
     <td align="center" width="50%">
       <h3>🔄&nbsp; Presets with Variants</h3>
       <p>Pre-load mock rules at startup via <code>initialMocks</code>. Each rule can carry multiple named variants (Success, Unauthorized, Server Error…) switch between them at runtime with one tap.</p>
-      <video src="https://raw.githubusercontent.com/akshayambaliya/images/refs/heads/main/Presets_With_Varients_High.mov" width="320" controls muted></video>
+      <a href="https://github.com/user-attachments/assets/24ed25d3-57db-4566-8fc3-5b7ab96ba9ae">
+        <img src="https://raw.githubusercontent.com/akshayambaliya/images/ca1005b8190ecde445bfe033525e50ca03552b3c/Simulator%20Screenshot%20-%20iPhone%2015%20Pro%2018.1%20-%202026-04-10%20at%2022.08.54.png" width="320" alt="Presets with Variants Demo 1" />
+        <img src="https://raw.githubusercontent.com/akshayambaliya/images/ca1005b8190ecde445bfe033525e50ca03552b3c/Simulator%20Screenshot%20-%20iPhone%2015%20Pro%2018.1%20-%202026-04-10%20at%2022.09.04.png" width="320" alt="Presets with Variants Demo 2" />
+      </a>
     </td>
   </tr>
 </table>
