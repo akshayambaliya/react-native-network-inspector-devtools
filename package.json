@@ -1,6 +1,6 @@
 {
   "name": "react-native-network-inspector-devtools",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "In-app network request logger and mocker for React Native. Captures axios traffic, renders a QA-friendly panel, and supports per-request response mocking.",
   "license": "MIT",
   "author": "Akshay Ambaliya",
