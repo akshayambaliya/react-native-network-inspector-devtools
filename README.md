@@ -1,4 +1,3 @@
-
 <div align="center">
 
 <h1>react-native-network-inspector-devtools</h1>
@@ -82,33 +81,32 @@ Tap the floating button inside your app to inspect every outgoing axios request 
   - [MockPreset Options](#mockpreset-options)
 - [API Reference](#api-reference)
 - [Contributing](#contributing)
-- [Changelog](#changelog)
 - [License](#license)
 
 ---
 
 ## Features
 
-| | |
-|---|---|
-| **One-component setup** | A single `<NetworkLogger>` wrapper replaces all manual wiring. |
-| **Live request inspector** | View URL, method, headers, request body, response body, status, and duration for every request. |
-| **Search & filter** | Filter logs by URL or HTTP method in real time. |
-| **Export logs** | Share any request/response as formatted JSON via the native share sheet on every field, section header, and from the detail screen header. |
-| **Response mocking** | Force any endpoint to return a custom response without touching the server. |
-| **Mock variants** | Each rule carries multiple response scenarios; QA switches between them instantly at runtime without restarting the app. |
-| **Developer preset mocks** | Pass `initialMocks` to pre-load rules at startup they appear with a **PRESET** badge in the panel. |
-| **Smart match priority** | `exact` beats `regex` beats `contains`; longer patterns beat shorter within the same type; user mocks always beat presets. |
-| **Correct 4xx/5xx behaviour** | Mocked error responses throw an `AxiosError` with `error.response` populated, so your `catch` blocks fire exactly as they would with a real server. |
-| **One-tap mock prefill** | Tap any log row → **Mock** to pre-fill the editor instantly. |
-| **4-tab panel** | Logs / Add Mock / My Mocks / Presets. The **My Mocks** and **Presets** tabs each show a green ping dot when at least one mock in that category is currently enabled a quick in-panel signal that requests are being intercepted. |
-| **Mock active indicator** | A **green dot** appears on the FAB corner whenever one or more mocks are enabled, so you can see interception is active without opening the panel at all. |
-| **Draggable FAB** | Drag the floating button to any corner of the screen at runtime. |
-| **Dark mode** | Follows the device color scheme automatically. |
-| **Multiple axios instances** | Intercept as many clients as you need. |
-| **Zero production overhead** | Pass `enabled={__DEV__}` to strip everything in release builds. |
-| **Zero non-peer dependencies** | Only `react`, `react-native`, and `axios`. |
-| **Fully typed** | Complete TypeScript definitions bundled no `@types/` package needed. |
+|                                |                                                                                                                                                                                                                                  |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **One-component setup**        | A single `<NetworkLogger>` wrapper replaces all manual wiring.                                                                                                                                                                   |
+| **Live request inspector**     | View URL, method, headers, request body, response body, status, and duration for every request.                                                                                                                                  |
+| **Search & filter**            | Filter logs by URL or HTTP method in real time.                                                                                                                                                                                  |
+| **Export logs**                | Share any request/response as formatted JSON via the native share sheet on every field, section header, and from the detail screen header.                                                                                       |
+| **Response mocking**           | Force any endpoint to return a custom response without touching the server.                                                                                                                                                      |
+| **Mock variants**              | Each rule carries multiple response scenarios; QA switches between them instantly at runtime without restarting the app.                                                                                                         |
+| **Developer preset mocks**     | Pass `initialMocks` to pre-load rules at startup they appear with a **PRESET** badge in the panel.                                                                                                                               |
+| **Smart match priority**       | `exact` beats `regex` beats `contains`; longer patterns beat shorter within the same type; user mocks always beat presets.                                                                                                       |
+| **Correct 4xx/5xx behaviour**  | Mocked error responses throw an `AxiosError` with `error.response` populated, so your `catch` blocks fire exactly as they would with a real server.                                                                              |
+| **One-tap mock prefill**       | Tap any log row → **Mock** to pre-fill the editor instantly.                                                                                                                                                                     |
+| **4-tab panel**                | Logs / Add Mock / My Mocks / Presets. The **My Mocks** and **Presets** tabs each show a green ping dot when at least one mock in that category is currently enabled a quick in-panel signal that requests are being intercepted. |
+| **Mock active indicator**      | A **green dot** appears on the FAB corner whenever one or more mocks are enabled, so you can see interception is active without opening the panel at all.                                                                        |
+| **Draggable FAB**              | Drag the floating button to any corner of the screen at runtime.                                                                                                                                                                 |
+| **Dark mode**                  | Follows the device color scheme automatically.                                                                                                                                                                                   |
+| **Multiple axios instances**   | Intercept as many clients as you need.                                                                                                                                                                                           |
+| **Zero production overhead**   | Pass `enabled={__DEV__}` to strip everything in release builds.                                                                                                                                                                  |
+| **Zero non-peer dependencies** | Only `react`, `react-native`, and `axios`.                                                                                                                                                                                       |
+| **Fully typed**                | Complete TypeScript definitions bundled no `@types/` package needed.                                                                                                                                                             |
 
 ---
 
@@ -124,6 +122,7 @@ yarn add react-native-network-inspector-devtools
 # pnpm
 pnpm add react-native-network-inspector-devtools
 ```
+
 ---
 
 ## Quick Start
@@ -132,11 +131,11 @@ Wrap your app root with `<NetworkLogger>` and you are done. A floating 🌐 butt
 
 ```tsx
 // App.tsx
-import React from 'react';
-import { NetworkLogger } from 'react-native-network-inspector-devtools';
+import React from "react";
+import { NetworkLogger } from "react-native-network-inspector-devtools";
 
-import { apiClient } from './src/api'; // your axios instance
-import { RootNavigator } from './src/navigation';
+import { apiClient } from "./src/api"; // your axios instance
+import { RootNavigator } from "./src/navigation";
 
 export default function App() {
   return (
@@ -158,8 +157,8 @@ export default function App() {
 Intercept every client your app uses by passing an array. `instance` and `instances` can be combined.
 
 ```tsx
-import { NetworkLogger } from 'react-native-network-inspector-devtools';
-import { apiClient, legacyClient, uploadClient } from './src/api';
+import { NetworkLogger } from "react-native-network-inspector-devtools";
+import { apiClient, legacyClient, uploadClient } from "./src/api";
 
 export default function App() {
   return (
@@ -180,52 +179,52 @@ export default function App() {
 Seed the **Presets** tab with predefined responses at startup no UI interaction needed. The mocks are ready the moment the app opens.
 
 ```tsx
-import { NetworkLogger } from 'react-native-network-inspector-devtools';
-import type { MockPreset } from 'react-native-network-inspector-devtools';
+import { NetworkLogger } from "react-native-network-inspector-devtools";
+import type { MockPreset } from "react-native-network-inspector-devtools";
 
 const devMocks: MockPreset[] = [
   // Simple single-response mock
   {
-    urlPattern: '/api/v1/user',
-    method: 'GET',
+    urlPattern: "/api/v1/user",
+    method: "GET",
     status: 200,
-    responseBody: JSON.stringify({ id: 1, name: 'QA User', role: 'admin' }),
+    responseBody: JSON.stringify({ id: 1, name: "QA User", role: "admin" }),
   },
 
   // Multi-variant mock — QA can switch between Default / Unauthorized / Server Error at runtime
   {
-    urlPattern: '/api/v1/auth/login',
-    method: 'POST',
+    urlPattern: "/api/v1/auth/login",
+    method: "POST",
     status: 200,
-    responseBody: JSON.stringify({ token: 'dev-token-abc' }),
-    defaultVariant: 'Unauthorized',
+    responseBody: JSON.stringify({ token: "dev-token-abc" }),
+    defaultVariant: "Unauthorized",
     variants: [
       {
-        name: 'Unauthorized',
+        name: "Unauthorized",
         status: 401,
-        responseBody: JSON.stringify({ error: 'Invalid credentials' }),
+        responseBody: JSON.stringify({ error: "Invalid credentials" }),
       },
       {
-        name: 'Server Error',
+        name: "Server Error",
         status: 503,
-        responseBody: JSON.stringify({ error: 'Service unavailable' }),
+        responseBody: JSON.stringify({ error: "Service unavailable" }),
       },
     ],
   },
 
   // Regex match — intercepts /api/v1/user/42 but NOT /api/v1/users
   {
-    urlPattern: '/api/v1/user/\\d+$',
-    method: 'GET',
-    matchType: 'regex',
+    urlPattern: "/api/v1/user/\\d+$",
+    method: "GET",
+    matchType: "regex",
     status: 200,
-    responseBody: JSON.stringify({ id: 42, name: 'User by ID' }),
+    responseBody: JSON.stringify({ id: 42, name: "User by ID" }),
   },
 
   // Starts disabled — QA toggles it on from the Presets tab when needed
   {
-    urlPattern: '/api/v1/feature-flag',
-    method: 'GET',
+    urlPattern: "/api/v1/feature-flag",
+    method: "GET",
     status: 200,
     responseBody: JSON.stringify({ enabled: false }),
     enabled: false,
@@ -252,9 +251,9 @@ export default function App() {
 Keep the logger active in internal QA builds without enabling it in production.
 
 ```tsx
-import Constants from 'expo-constants';
+import Constants from "expo-constants";
 
-const isQA = Constants.expoConfig?.extra?.appVariant === 'qa';
+const isQA = Constants.expoConfig?.extra?.appVariant === "qa";
 
 export default function App() {
   return (
@@ -282,8 +281,8 @@ import {
   NetworkLoggerAxiosInterceptor,
   NetworkLoggerFAB,
   NetworkLoggerPanel,
-} from 'react-native-network-inspector-devtools';
-import { apiClient, uploadClient } from './src/api';
+} from "react-native-network-inspector-devtools";
+import { apiClient, uploadClient } from "./src/api";
 
 export default function App() {
   return (
@@ -306,11 +305,11 @@ export default function App() {
 
 Every mock rule has a `matchType` that controls how its `urlPattern` is compared to outgoing request URLs.
 
-| `matchType` | Behaviour | Default | When to use |
-|---|---|---|---|
-| `'contains'` | URL contains the pattern as a case insensitive substring | ✅ | Quick path-segment mocking `/user` matches `/api/v1/user` and `/api/v1/user/123` |
-| `'exact'` | Full URL must equal the pattern exactly (case-insensitive) | — | Mock one specific endpoint without touching similar paths |
-| `'regex'` | Pattern is a JavaScript `RegExp` string | — | Precise matching differentiate `/user/42` from `/users`, catch dynamic IDs, query strings |
+| `matchType`  | Behaviour                                                  | Default | When to use                                                                               |
+| ------------ | ---------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------- |
+| `'contains'` | URL contains the pattern as a case insensitive substring   | ✅      | Quick path-segment mocking `/user` matches `/api/v1/user` and `/api/v1/user/123`          |
+| `'exact'`    | Full URL must equal the pattern exactly (case-insensitive) | —       | Mock one specific endpoint without touching similar paths                                 |
+| `'regex'`    | Pattern is a JavaScript `RegExp` string                    | —       | Precise matching differentiate `/user/42` from `/users`, catch dynamic IDs, query strings |
 
 **Match priority when multiple patterns hit the same URL:**
 
@@ -326,15 +325,15 @@ Within the same type, the longer pattern wins. User-added mocks always beat pres
 
 All-in-one wrapper component. Recommended for most use cases.
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `enabled` | `boolean` | `true` | When `false`, renders children only zero library overhead. Use `enabled={__DEV__}`. |
-| `instance` | `AxiosInstance` | — | A single axios instance to intercept. |
-| `instances` | `AxiosInstance[]` | — | Multiple axios instances. Can be combined with `instance`. |
-| `initialMocks` | `MockPreset[]` | — | Pre-load mock rules at startup. Appear in the **Presets** tab with a badge. |
-| `fabPosition` | `{ bottom?, top?, left?, right? }` | `{ bottom: 90, right: 16 }` | Starting position of the floating button. Draggable at runtime. |
-| `maxEntries` | `number` | `200` | Maximum log entries to retain. Oldest are dropped when the cap is reached. |
-| `children` | `ReactNode` | — | Your app tree. |
+| Prop           | Type                               | Default                     | Description                                                                         |
+| -------------- | ---------------------------------- | --------------------------- | ----------------------------------------------------------------------------------- |
+| `enabled`      | `boolean`                          | `true`                      | When `false`, renders children only zero library overhead. Use `enabled={__DEV__}`. |
+| `instance`     | `AxiosInstance`                    | —                           | A single axios instance to intercept.                                               |
+| `instances`    | `AxiosInstance[]`                  | —                           | Multiple axios instances. Can be combined with `instance`.                          |
+| `initialMocks` | `MockPreset[]`                     | —                           | Pre-load mock rules at startup. Appear in the **Presets** tab with a badge.         |
+| `fabPosition`  | `{ bottom?, top?, left?, right? }` | `{ bottom: 90, right: 16 }` | Starting position of the floating button. Draggable at runtime.                     |
+| `maxEntries`   | `number`                           | `200`                       | Maximum log entries to retain. Oldest are dropped when the cap is reached.          |
+| `children`     | `ReactNode`                        | —                           | Your app tree.                                                                      |
 
 > **Note:** The `showMockIndicator` prop (green dot on the FAB corner) is not forwarded through `<NetworkLogger>`. If you need to control it, use the [manual setup](#4-manual-setup-for-full-rendering-control) and pass `showMockIndicator` directly to `<NetworkLoggerFAB>`.
 
@@ -344,11 +343,11 @@ All-in-one wrapper component. Recommended for most use cases.
 
 Context provider for the manual setup pattern.
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `initialMocks` | `MockPreset[]` | — | Pre-load mock rules at startup. |
-| `maxEntries` | `number` | `200` | Maximum log entries to retain. |
-| `children` | `ReactNode` | — | Your app tree. |
+| Prop           | Type           | Default | Description                     |
+| -------------- | -------------- | ------- | ------------------------------- |
+| `initialMocks` | `MockPreset[]` | —       | Pre-load mock rules at startup. |
+| `maxEntries`   | `number`       | `200`   | Maximum log entries to retain.  |
+| `children`     | `ReactNode`    | —       | Your app tree.                  |
 
 ---
 
@@ -356,28 +355,28 @@ Context provider for the manual setup pattern.
 
 The floating 🌐 button that opens the panel.
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `position` | `{ bottom?, top?, left?, right? }` | `{ bottom: 90, right: 16 }` | Initial absolute position (before any dragging). |
-| `draggable` | `boolean` | `true` | Enable / disable drag-and-drop repositioning at runtime. |
-| `showMockIndicator` | `boolean` | `true` | Show a green dot on the FAB corner when at least one mock is enabled. Pass `false` to hide it. |
+| Prop                | Type                               | Default                     | Description                                                                                    |
+| ------------------- | ---------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `position`          | `{ bottom?, top?, left?, right? }` | `{ bottom: 90, right: 16 }` | Initial absolute position (before any dragging).                                               |
+| `draggable`         | `boolean`                          | `true`                      | Enable / disable drag-and-drop repositioning at runtime.                                       |
+| `showMockIndicator` | `boolean`                          | `true`                      | Show a green dot on the FAB corner when at least one mock is enabled. Pass `false` to hide it. |
 
 ---
 
 ### `MockPreset` Options
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `urlPattern` | `string` | ✅ | The pattern to match against outgoing request URLs. |
-| `method` | `HttpMethod` | ✅ | HTTP method (`'GET'`, `'POST'`, `'PUT'`, …). |
-| `matchType` | `MockUrlMatchType` | — | `'contains'` (default), `'exact'`, or `'regex'`. |
-| `status` | `number` | ✅ (if no `variants`) | HTTP status code for the implicit Default variant. |
-| `responseBody` | `string` | ✅ (if no `variants`) | Response body for the Default variant (JSON string or plain text). |
-| `responseHeaders` | `Record<string, string>` | — | Response headers to include. |
-| `delay` | `number` | — | Artificial delay in milliseconds before the Default variant responds. |
-| `enabled` | `boolean` | — | Whether the mock starts active. Defaults to `true`. |
-| `variants` | `MockPresetVariant[]` | — | Additional named response scenarios. |
-| `defaultVariant` | `string` | — | Name of the variant to activate on first load. Defaults to the first variant. |
+| Field             | Type                     | Required              | Description                                                                   |
+| ----------------- | ------------------------ | --------------------- | ----------------------------------------------------------------------------- |
+| `urlPattern`      | `string`                 | ✅                    | The pattern to match against outgoing request URLs.                           |
+| `method`          | `HttpMethod`             | ✅                    | HTTP method (`'GET'`, `'POST'`, `'PUT'`, …).                                  |
+| `matchType`       | `MockUrlMatchType`       | —                     | `'contains'` (default), `'exact'`, or `'regex'`.                              |
+| `status`          | `number`                 | ✅ (if no `variants`) | HTTP status code for the implicit Default variant.                            |
+| `responseBody`    | `string`                 | ✅ (if no `variants`) | Response body for the Default variant (JSON string or plain text).            |
+| `responseHeaders` | `Record<string, string>` | —                     | Response headers to include.                                                  |
+| `delay`           | `number`                 | —                     | Artificial delay in milliseconds before the Default variant responds.         |
+| `enabled`         | `boolean`                | —                     | Whether the mock starts active. Defaults to `true`.                           |
+| `variants`        | `MockPresetVariant[]`    | —                     | Additional named response scenarios.                                          |
+| `defaultVariant`  | `string`                 | —                     | Name of the variant to activate on first load. Defaults to the first variant. |
 
 ---
 
@@ -388,7 +387,7 @@ The floating 🌐 button that opens the panel.
 All-in-one component. Renders the provider, interceptor(s), FAB, and panel in one step. Recommended for the vast majority of use cases.
 
 ```tsx
-import { NetworkLogger } from 'react-native-network-inspector-devtools';
+import { NetworkLogger } from "react-native-network-inspector-devtools";
 ```
 
 ---
@@ -398,7 +397,7 @@ import { NetworkLogger } from 'react-native-network-inspector-devtools';
 Context provider. Use directly only when you need the [manual setup](#4-manual-setup-for-full-rendering-control) pattern.
 
 ```tsx
-import { NetworkLoggerProvider } from 'react-native-network-inspector-devtools';
+import { NetworkLoggerProvider } from "react-native-network-inspector-devtools";
 ```
 
 ---
@@ -408,7 +407,7 @@ import { NetworkLoggerProvider } from 'react-native-network-inspector-devtools';
 Attaches axios request/response interceptors for a single instance. Must be rendered inside `<NetworkLoggerProvider>`. Cleans up automatically on unmount.
 
 ```tsx
-import { NetworkLoggerAxiosInterceptor } from 'react-native-network-inspector-devtools';
+import { NetworkLoggerAxiosInterceptor } from "react-native-network-inspector-devtools";
 // Props: instance: AxiosInstance
 ```
 
@@ -419,7 +418,7 @@ import { NetworkLoggerAxiosInterceptor } from 'react-native-network-inspector-de
 The floating 🌐 button that opens the panel. Draggable by default.
 
 ```tsx
-import { NetworkLoggerFAB } from 'react-native-network-inspector-devtools';
+import { NetworkLoggerFAB } from "react-native-network-inspector-devtools";
 ```
 
 ---
@@ -429,8 +428,9 @@ import { NetworkLoggerFAB } from 'react-native-network-inspector-devtools';
 The full-screen modal panel. Controlled by the context's `isVisible` state; opened/closed by the FAB or `dispatch({ type: 'SET_VISIBLE', payload: true })`. Accepts no props.
 
 ```tsx
-import { NetworkLoggerPanel } from 'react-native-network-inspector-devtools';
+import { NetworkLoggerPanel } from "react-native-network-inspector-devtools";
 ```
+
 ---
 
 ## Contributing
@@ -461,24 +461,6 @@ npm run lint
 2. Make your changes in `src/`
 3. Run `npm run build` and confirm it exits cleanly
 4. Open a PR against `main` with a clear description of what changed and why
-
----
-
-## Changelog
-
-**v0.1.1** — Initial release
-
-- Full axios request/response logging panel
-- Response mocking with URL match types (`contains`, `exact`, `regex`)
-- Mock variants with runtime switching
-- Developer preset mocks via `initialMocks`
-- Specificity-based match scoring (`exact` > `regex` > `contains`)
-- Correct 4xx/5xx throw behaviour from the custom axios adapter
-- 4-tab panel: Logs / Add Mock / My Mocks / Presets
-- Active ping-dot indicator on mock tabs
-- Draggable FAB
-- Dark mode support
-- Full TypeScript definitions
 
 ---
 

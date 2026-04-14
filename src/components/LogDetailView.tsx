@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import type { NetworkLogEntry } from '../types';
@@ -12,9 +12,10 @@ const prettyJson = (value: unknown): string => {
   if (typeof value === 'object') {
     try {
       const result = JSON.stringify(value, null, 2);
-      return typeof result === 'string' ? result : '';
+      return typeof result === 'string' ? result : String(value);
     } catch {
-      return '';
+      // Circular reference or non-serialisable value — show raw string form
+      return String(value);
     }
   }
   const str = typeof value === 'string' ? value : String(value);
@@ -23,6 +24,7 @@ const prettyJson = (value: unknown): string => {
     const result = JSON.stringify(JSON.parse(str), null, 2);
     return typeof result === 'string' ? result : str;
   } catch {
+    // Not valid JSON — display as plain text, nothing is lost
     return str;
   }
 };
@@ -69,6 +71,80 @@ const buildCopyPayload = (entry: NetworkLogEntry): string =>
     2
   );
 
+const buildCurlCommand = (entry: NetworkLogEntry): string => {
+  const parts: string[] = [`curl -X ${entry.method}`];
+
+  // Request headers
+  if (entry.requestHeaders) {
+    for (const [key, val] of Object.entries(entry.requestHeaders)) {
+      // POSIX shell single-quote escape: replace ' with '\''
+      parts.push(`  -H '${key}: ${val.replace(/'/g, "'\\''")}'`);
+    }
+  }
+
+  // Request body (POST / PUT / PATCH / etc.)
+  if (entry.requestBody && entry.requestBody.trim()) {
+    // Same POSIX escape for body content
+    const escaped = entry.requestBody.replace(/'/g, "'\\''");
+    parts.push(`  -d '${escaped}'`);
+  }
+
+  // URL — always last; escape single quotes in the URL as well
+  const escapedUrl = entry.url.replace(/'/g, "'\\''");
+  parts.push(`  '${escapedUrl}'`);
+
+  return parts.join(' \\\n');
+};
+
+/**
+ * React Native's Text component silently renders blank when the string
+ * exceeds ~50-100 KB (the native layout engine gives up computing line breaks).
+ * We chunk large strings into slices of MAX_CHUNK_CHARS so each Text node
+ * stays well inside the safe zone, while the user sees the full content.
+ */
+const MAX_CHUNK_CHARS = 8_000;
+
+const ChunkedText = ({
+  value,
+  style,
+}: {
+  value: string;
+  style: object | object[];
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const isLarge = value.length > MAX_CHUNK_CHARS;
+  const visible = isLarge && !expanded ? value.slice(0, MAX_CHUNK_CHARS) : value;
+
+  // Split into chunks so no single Text node exceeds the safe limit.
+  const chunks: string[] = [];
+  for (let i = 0; i < visible.length; i += MAX_CHUNK_CHARS) {
+    chunks.push(visible.slice(i, i + MAX_CHUNK_CHARS));
+  }
+
+  return (
+    <View>
+      {chunks.map((chunk, idx) => (
+        <Text key={idx} selectable style={style}>
+          {chunk}
+        </Text>
+      ))}
+      {isLarge && (
+        <TouchableOpacity
+          onPress={() => setExpanded((v) => !v)}
+          activeOpacity={0.7}
+          style={styles.expandButton}
+        >
+          <Text style={styles.expandButtonText}>
+            {expanded
+              ? '▲ Show less'
+              : `▼ Show full response (${(value.length / 1024).toFixed(1)} KB)`}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+};
+
 interface FieldRowProps {
   label: string;
   value: string | undefined;
@@ -88,9 +164,10 @@ const FieldRow = ({ label, value, isCode, copyValue }: FieldRowProps) => {
       </View>
       {isCode ? (
         <View style={[styles.codeBlock, { backgroundColor: theme.codeBg }]}>
-          <Text selectable style={[styles.codeText, { color: theme.codeText }]}>
-            {display}
-          </Text>
+          <ChunkedText
+            value={display}
+            style={[styles.codeText, { color: theme.codeText }]}
+          />
         </View>
       ) : (
         <Text selectable style={[styles.fieldValue, { color: theme.text }]}>
@@ -123,8 +200,16 @@ export const LogDetailView = ({ entry, onBack, onMock }: Props) => {
     try {
       await Share.share({
         message: buildCopyPayload(entry),
-        // iOS-only: sets the filename when the user saves to Files
-        // Android uses `message` as plain text automatically
+      });
+    } catch {
+      // User dismissed the share sheet — not an error
+    }
+  };
+
+  const handleExportCurl = async () => {
+    try {
+      await Share.share({
+        message: buildCurlCommand(entry),
       });
     } catch {
       // User dismissed the share sheet — not an error
@@ -188,6 +273,15 @@ export const LogDetailView = ({ entry, onBack, onMock }: Props) => {
             accessibilityLabel="Export this request"
           >
             <Text style={[styles.exportButtonText, { color: theme.text }]}>Export</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleExportCurl}
+            activeOpacity={0.7}
+            style={[styles.exportButton, { borderColor: theme.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Export as cURL command"
+          >
+            <Text style={[styles.exportButtonText, { color: theme.text }]}>cURL</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -342,5 +436,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'monospace',
     lineHeight: 18,
+  },
+  expandButton: {
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  expandButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#3B82F6',
   },
 });
