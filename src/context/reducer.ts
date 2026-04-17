@@ -30,6 +30,8 @@ export function reducer(
       return { ...state, isVisible: action.payload };
     case 'SET_SELECTED_ENTRY':
       return { ...state, selectedEntryId: action.payload };
+    case 'HYDRATE_MOCKS':
+      return { ...state, mocks: action.payload };
     case 'ADD_MOCK': {
       // Deduplicate only within user-added mocks.
       // Preset mocks with the same URL+method are intentionally kept — the

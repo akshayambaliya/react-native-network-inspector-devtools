@@ -53,11 +53,13 @@
     "qa"
   ],
   "peerDependencies": {
+    "@react-native-async-storage/async-storage": ">=1.0.0",
     "axios": ">=1.0.0",
     "react": ">=18.0.0",
     "react-native": ">=0.73.0"
   },
   "devDependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
     "@types/react": "^18.0.0",
     "axios": "^1.7.0",
     "react": "18.3.1",
