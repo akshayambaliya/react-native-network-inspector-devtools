@@ -1,4 +1,5 @@
 import type { NetworkLoggerAction, NetworkLoggerState } from '../types';
+import { presetsToMocks } from './NetworkLoggerContext';
 
 export const initialState: NetworkLoggerState = {
   entries: [],
@@ -91,6 +92,16 @@ export function reducer(
           };
         }),
       };
+    }
+    case 'ADD_PRESETS': {
+      const newMocks = presetsToMocks(action.payload);
+      // Filter out any existing presets that would be duplicated by the new ones
+      // (same method + urlPattern) - new presets win
+      const newKeys = new Set(newMocks.map((m) => `${m.method.toLowerCase()}||${m.urlPattern.toLowerCase()}`));
+      const filteredExisting = state.mocks.filter(
+        (m) => m.source !== 'preset' || !newKeys.has(`${m.method.toLowerCase()}||${m.urlPattern.toLowerCase()}`)
+      );
+      return { ...state, mocks: [...filteredExisting, ...newMocks] };
     }
     default:
       return state;

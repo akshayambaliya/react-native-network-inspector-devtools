@@ -15,6 +15,7 @@ export { MockEditor } from './components/MockEditor';
 export type { MockPrefill } from './components/MockEditor';
 export { MockListView } from './components/MockListView';
 export { MockDetailView } from './components/MockDetailView';
+export { PresetImporter } from './components/PresetImporter';
 
 // Low-level API (for manual interceptor installation)
 export { installInterceptors } from './utils/interceptor';

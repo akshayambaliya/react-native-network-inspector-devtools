@@ -165,18 +165,16 @@ export const MockListView = ({ source = 'user' }: Props) => {
             accessibilityLabel={`Toggle mock for ${mock.urlPattern}`}
             accessibilityRole="switch"
           />
-          {!isPreset && (
-            <TouchableOpacity
-              onPress={() =>
-                dispatch({ type: 'REMOVE_MOCK', payload: mock.id })
-              }
-              style={[styles.deleteButton, { backgroundColor: theme.danger }]}
-              accessibilityRole="button"
-              accessibilityLabel={`Delete mock for ${mock.urlPattern}`}
-            >
-              <Text style={styles.deleteButtonText}>Delete</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            onPress={() =>
+              dispatch({ type: 'REMOVE_MOCK', payload: mock.id })
+            }
+            style={[styles.deleteButton, { backgroundColor: theme.danger }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Delete mock for ${mock.urlPattern}`}
+          >
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </TouchableOpacity>
           <Text style={[styles.chevron, { color: theme.textSecondary }]}>
             ›
           </Text>

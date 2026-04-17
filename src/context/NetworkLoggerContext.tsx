@@ -21,7 +21,7 @@ import { initialState, reducer } from "./reducer";
  *   gets the same ID across renders.
  * - Last definition wins when two presets share the same method + urlPattern.
  */
-function presetsToMocks(presets: MockPreset[]): NetworkMock[] {
+export function presetsToMocks(presets: MockPreset[]): NetworkMock[] {
   // Deduplicate: last entry for a given method+urlPattern wins.
   const seen = new Map<string, MockPreset>();
   for (const p of presets) {
