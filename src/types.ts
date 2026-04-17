@@ -213,4 +213,5 @@ export type NetworkLoggerAction =
   | { type: 'ADD_MOCK'; payload: NetworkMock }
   | { type: 'REMOVE_MOCK'; payload: string }
   | { type: 'TOGGLE_MOCK'; payload: string }
-  | { type: 'SET_MOCK_VARIANT'; payload: { mockId: string; variantId: string } };
+  | { type: 'SET_MOCK_VARIANT'; payload: { mockId: string; variantId: string } }
+  | { type: 'ADD_PRESETS'; payload: MockPreset[] };
