@@ -16,9 +16,11 @@ import { MockDetailView } from "./MockDetailView";
 interface Props {
   /** Which mock source to display. Defaults to 'user'. */
   source?: 'user' | 'preset';
+  /** Called when the user requests to edit a mock. */
+  onEditMock?: (mock: NetworkMock) => void;
 }
 
-export const MockListView = ({ source = 'user' }: Props) => {
+export const MockListView = ({ source = 'user', onEditMock }: Props) => {
   const { mocks, dispatch } = useNetworkLogger();
   const theme = useTheme();
 
@@ -36,7 +38,11 @@ export const MockListView = ({ source = 'user' }: Props) => {
 
   if (selectedMock) {
     return (
-      <MockDetailView mock={selectedMock} onBack={() => setSelectedId(null)} />
+      <MockDetailView
+        mock={selectedMock}
+        onBack={() => setSelectedId(null)}
+        onEdit={onEditMock ?? undefined}
+      />
     );
   }
 
