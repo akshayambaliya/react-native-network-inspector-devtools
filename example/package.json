@@ -8,6 +8,7 @@
     "ios": "./node_modules/.bin/expo start --ios --clear --localhost"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.1.0",
     "axios": "^1.6.8",
     "expo": "~52.0.0",
     "expo-asset": "~11.0.5",

@@ -1,8 +1,11 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
+  useRef,
   type Dispatch,
 } from "react";
 
@@ -14,6 +17,58 @@ import type {
   NetworkMock,
 } from "../types";
 import { initialState, reducer } from "./reducer";
+
+const MOCKS_STORAGE_KEY = 'react-native-network-inspector-devtools:mocks';
+
+function getMockKey(mock: Pick<NetworkMock, 'urlPattern' | 'method'>) {
+  return `${mock.method.toUpperCase()}||${mock.urlPattern.toLowerCase()}`;
+}
+
+function mergeMocks(presetMocks: NetworkMock[], savedMocks: NetworkMock[]) {
+  const mergedPresets = presetMocks.map((preset) => {
+    const savedPreset = savedMocks.find(
+      (savedMock) => savedMock.source === 'preset' && savedMock.id === preset.id
+    );
+    if (!savedPreset) return preset;
+
+    const activeVariant =
+      preset.variants?.find((variant) => variant.id === savedPreset.activeVariantId) ??
+      preset.variants?.[0];
+
+    return {
+      ...preset,
+      enabled: savedPreset.enabled,
+      activeVariantId: activeVariant?.id ?? preset.activeVariantId,
+      status: activeVariant?.status ?? preset.status,
+      responseBody: activeVariant?.responseBody ?? preset.responseBody,
+      responseHeaders: activeVariant?.responseHeaders ?? preset.responseHeaders,
+      delay: activeVariant?.delay ?? preset.delay,
+    };
+  });
+
+  const presetKeys = new Set(mergedPresets.map((mock) => getMockKey(mock)));
+  const savedUserMocks = savedMocks.filter(
+    (mock) => mock.source !== 'preset' && !presetKeys.has(getMockKey(mock))
+  );
+
+  return [...mergedPresets, ...savedUserMocks];
+}
+
+function isNetworkMockArray(value: unknown): value is NetworkMock[] {
+  return Array.isArray(value) && value.every((mock) => {
+    if (!mock || typeof mock !== 'object') return false;
+
+    const candidate = mock as Partial<NetworkMock>;
+    return (
+      typeof candidate.id === 'string' &&
+      typeof candidate.urlPattern === 'string' &&
+      typeof candidate.method === 'string' &&
+      typeof candidate.status === 'number' &&
+      typeof candidate.responseBody === 'string' &&
+      typeof candidate.enabled === 'boolean'
+    );
+  });
+}
 
 /**
  * Converts developer-provided MockPreset definitions to internal NetworkMock records.
@@ -116,6 +171,8 @@ export interface NetworkLoggerContextValue {
   maxEntries: number;
   /** The currently selected log entry, or `null` if none selected. */
   selectedEntry: NetworkLogEntry | null;
+  /** Writes the current mock list to persistent storage (AsyncStorage). */
+  persistMocks: () => Promise<void>;
   dispatch: Dispatch<NetworkLoggerAction>;
 }
 
@@ -158,16 +215,72 @@ export const NetworkLoggerProvider = ({
   maxEntries = 200,
   initialMocks,
 }: NetworkLoggerProviderProps) => {
+  const initialPresetMocks = useMemo(
+    () => presetsToMocks(initialMocks ?? []),
+    [initialMocks],
+  );
+
   // Lazy initializer: presetsToMocks() runs only once on mount, not on every render.
   const [state, dispatch] = useReducer(
     reducer,
-    { initialMocks, maxEntries },
-    ({ initialMocks: im, maxEntries: me }) => ({
+    { initialPresetMocks, maxEntries },
+    ({ initialPresetMocks: ipm, maxEntries: me }) => ({
       ...initialState,
       maxEntries: me,
-      mocks: presetsToMocks(im ?? []),
+      mocks: ipm,
     }),
   );
+
+  const hasRestoredMocksRef = useRef(false);
+
+  const persistMocks = async () => {
+    await AsyncStorage.setItem(MOCKS_STORAGE_KEY, JSON.stringify(state.mocks));
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreMocks = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(MOCKS_STORAGE_KEY);
+        if (!stored || !isMounted) {
+          hasRestoredMocksRef.current = true;
+          return;
+        }
+
+        const parsed = JSON.parse(stored) as unknown;
+        if (!isNetworkMockArray(parsed)) {
+          hasRestoredMocksRef.current = true;
+          return;
+        }
+
+        dispatch({
+          type: 'HYDRATE_MOCKS',
+          payload: mergeMocks(initialPresetMocks, parsed),
+        });
+      } catch {
+        // Ignore persistence failures and continue with in-memory mocks.
+      } finally {
+        if (isMounted) {
+          hasRestoredMocksRef.current = true;
+        }
+      }
+    };
+
+    restoreMocks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialPresetMocks]);
+
+  useEffect(() => {
+    if (!hasRestoredMocksRef.current) return;
+
+    persistMocks().catch(() => {
+      // Ignore persistence failures and keep the logger usable.
+    });
+  }, [state.mocks]);
 
   const value = useMemo<NetworkLoggerContextValue>(() => {
     const selectedEntry = state.selectedEntryId
@@ -182,6 +295,7 @@ export const NetworkLoggerProvider = ({
       isVisible: state.isVisible,
       maxEntries: state.maxEntries,
       selectedEntry,
+      persistMocks,
       dispatch,
     };
   }, [state, dispatch]);

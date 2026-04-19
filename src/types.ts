@@ -210,6 +210,7 @@ export type NetworkLoggerAction =
   | { type: 'CLEAR_ENTRIES' }
   | { type: 'SET_VISIBLE'; payload: boolean }
   | { type: 'SET_SELECTED_ENTRY'; payload: string | null }
+  | { type: 'HYDRATE_MOCKS'; payload: NetworkMock[] }
   | { type: 'ADD_MOCK'; payload: NetworkMock }
   | { type: 'REMOVE_MOCK'; payload: string }
   | { type: 'TOGGLE_MOCK'; payload: string }
