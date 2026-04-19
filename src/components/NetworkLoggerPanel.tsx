@@ -12,7 +12,7 @@ import {
 
 import { useNetworkLogger } from '../context/NetworkLoggerContext';
 import { useTheme } from '../theme';
-import type { NetworkLogEntry } from '../types';
+import type { NetworkLogEntry, NetworkMock } from '../types';
 import { LogDetailView } from './LogDetailView';
 import { LogRow } from './LogRow';
 import { MockEditor, type MockPrefill } from './MockEditor';
@@ -75,6 +75,7 @@ export const NetworkLoggerPanel = () => {
   const [activeTab, setActiveTab] = useState<Tab>('logs');
   const [mockPrefill, setMockPrefill] = useState<MockPrefill | undefined>(undefined);
   const [filter, setFilter] = useState('');
+  const [editingMock, setEditingMock] = useState<NetworkMock | undefined>(undefined);
 
   const filteredEntries = filter.trim()
     ? entries.filter(
@@ -104,6 +105,17 @@ export const NetworkLoggerPanel = () => {
     dispatch({ type: 'SET_SELECTED_ENTRY', payload: null });
     setMockPrefill(prefill);
     setActiveTab('add-mock');
+  };
+
+  const handleEditMock = (mock: NetworkMock) => {
+    setEditingMock(mock);
+    setActiveTab('add-mock');
+  };
+
+  const handleMockSaved = () => {
+    setMockPrefill(undefined);
+    setEditingMock(undefined);
+    setActiveTab('my-mocks');
   };
   const renderLogs = () => {
     if (selectedEntry) {
@@ -298,12 +310,23 @@ export const NetworkLoggerPanel = () => {
           {activeTab === 'logs' && renderLogs()}
           {activeTab === 'add-mock' && (
             <MockEditor
-              prefill={mockPrefill}
-              onPrefillConsumed={() => setMockPrefill(undefined)}
-              onSaved={() => setActiveTab('my-mocks')}
+              prefill={editingMock ? {
+                urlPattern: editingMock.urlPattern,
+                method: editingMock.method,
+                status: String(editingMock.status ?? ''),
+                responseBody: editingMock.responseBody,
+                matchType: editingMock.matchType,
+              } : mockPrefill}
+              onPrefillConsumed={() => {
+                setMockPrefill(undefined);
+                setEditingMock(undefined);
+              }}
+              onSaved={handleMockSaved}
+              editId={editingMock?.id}
+              onUpdate={(id, patch) => dispatch({ type: 'UPDATE_MOCK', payload: { id, patch } })}
             />
           )}
-          {activeTab === 'my-mocks' && <MockListView source="user" />}
+          {activeTab === 'my-mocks' && <MockListView source="user" onEditMock={handleEditMock} />}
           {activeTab === 'presets' && <MockListView source="preset" />}
         </View>
       </View>

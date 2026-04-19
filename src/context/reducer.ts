@@ -64,6 +64,13 @@ export function reducer(
       };
       return { ...state, mocks: [...filtered, withData] };
     }
+    case 'UPDATE_MOCK':
+      return {
+        ...state,
+        mocks: state.mocks.map((m) =>
+          m.id === action.payload.id ? { ...m, ...action.payload.patch } : m
+        ),
+      };
     case 'REMOVE_MOCK':
       return { ...state, mocks: state.mocks.filter((m) => m.id !== action.payload) };
     case 'TOGGLE_MOCK':
