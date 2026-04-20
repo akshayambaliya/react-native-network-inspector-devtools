@@ -119,7 +119,7 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
             style={[styles.mockUrl, { color: theme.text }]}
             numberOfLines={2}
           >
-            {mock.urlPattern || '—'}
+            {mock.name ?? mock.urlPattern ?? '—'}
           </Text>
 
           {/* Variant switcher — only shown when the mock has more than one variant */}

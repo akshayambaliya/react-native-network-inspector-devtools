@@ -132,6 +132,7 @@ export function presetsToMocks(presets: MockPreset[]): NetworkMock[] {
 
     return {
       id: presetId,
+      name: p.name,
       urlPattern: p.urlPattern,
       method: p.method.toUpperCase(),
       matchType: p.matchType ?? 'contains',

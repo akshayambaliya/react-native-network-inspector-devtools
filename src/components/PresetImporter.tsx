@@ -170,8 +170,17 @@ function validatePresets(data: unknown): ValidationResult {
       };
     }
 
+    // Validate optional name field
+    if (preset.name !== undefined && typeof preset.name !== 'string') {
+      return {
+        valid: false,
+        error: `Preset at index ${i}: 'name' must be a string.`,
+      };
+    }
+
     // Build the validated preset
     const validatedPreset: MockPreset = {
+      name: preset.name as string | undefined,
       urlPattern: preset.urlPattern as string,
       method: preset.method as string,
       matchType: preset.matchType as MockPreset['matchType'],

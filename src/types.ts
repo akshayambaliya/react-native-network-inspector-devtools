@@ -56,6 +56,8 @@ export interface MockVariant {
 
 export interface NetworkMock {
   id: string;
+  /** Optional display name for the mock. Shown in the mocks list if provided, otherwise urlPattern is used. */
+  name?: string;
   urlPattern: string;
   method: HttpMethod;
   /**
@@ -147,6 +149,8 @@ export interface MockPresetVariant {
  * ```
  */
 export interface MockPreset {
+  /** Optional display name for the preset. Shown in the mocks list if provided, otherwise urlPattern is used. */
+  name?: string;
   /** URL pattern to match. How it is interpreted depends on `matchType`. */
   urlPattern: string;
   method: HttpMethod;
