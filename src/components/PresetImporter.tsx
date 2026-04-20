@@ -9,6 +9,8 @@ import {
   View,
 } from 'react-native';
 
+import * as Clipboard from 'expo-clipboard';
+
 import { useTheme } from '../theme';
 import type { MockPreset, MockPresetVariant } from '../types';
 
@@ -270,6 +272,30 @@ export const PresetImporter = ({ onImport }: { onImport?: (presets: MockPreset[]
     setShowPasteModal(true);
   };
 
+  const handleClipboardImport = async () => {
+    setIsLoading(true);
+
+    try {
+      // Read from system clipboard using expo-clipboard
+      const clipboardContent = await Clipboard.getStringAsync();
+
+      if (!clipboardContent || !clipboardContent.trim()) {
+        Alert.alert('Empty Clipboard', 'There is no text content in the clipboard to import.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Process the clipboard content using the existing function
+      await processImportedContent(clipboardContent, setIsLoading, onImport);
+    } catch (error) {
+      Alert.alert(
+        'Clipboard Read Failed',
+        error instanceof Error ? error.message : 'An unknown error occurred while reading from clipboard.'
+      );
+      setIsLoading(false);
+    }
+  };
+
   const handlePasteSubmit = async () => {
     if (!pastedJson.trim()) {
       Alert.alert('Empty Input', 'Please paste some JSON content to import.');
@@ -299,21 +325,39 @@ export const PresetImporter = ({ onImport }: { onImport?: (presets: MockPreset[]
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={[
-          styles.importButton,
-          { backgroundColor: theme.primary },
-          isLoading && styles.importButtonDisabled,
-        ]}
-        onPress={handlePasteImport}
-        disabled={isLoading}
-        accessibilityRole="button"
-        accessibilityLabel="Paste JSON preset"
-      >
-        <Text style={styles.importButtonText}>
-          {isLoading ? 'Importing...' : 'Paste JSON to Import Presets'}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.buttonRow}>
+        <TouchableOpacity
+          style={[
+            styles.importButton,
+            { backgroundColor: theme.primary },
+            isLoading && styles.importButtonDisabled,
+          ]}
+          onPress={handlePasteImport}
+          disabled={isLoading}
+          accessibilityRole="button"
+          accessibilityLabel="Paste JSON preset"
+        >
+          <Text style={styles.importButtonText}>
+            {isLoading ? 'Importing...' : 'Paste JSON'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.importButton,
+            { backgroundColor: theme.primary },
+            isLoading && styles.importButtonDisabled,
+          ]}
+          onPress={handleClipboardImport}
+          disabled={isLoading}
+          accessibilityRole="button"
+          accessibilityLabel="Paste from Clipboard"
+        >
+          <Text style={styles.importButtonText}>
+            {isLoading ? 'Importing...' : 'Paste from Clipboard'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.hint}>
         <Text style={[styles.hintText, { color: theme.textSecondary }]}>
