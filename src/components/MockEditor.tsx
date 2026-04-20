@@ -397,14 +397,16 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
       : undefined;
 
     if (isEditing && onUpdate) {
-      // Update existing mock
+      // Update existing mock.
+      // Always include delay (even as undefined) so that clearing the field
+      // actually removes an existing delay rather than silently preserving it.
       onUpdate(editId, {
         urlPattern: urlPattern.trim(),
         matchType,
         method,
         status: parseInt(statusCode, 10),
         responseBody: responseBody.trim(),
-        ...(delayMs !== undefined && delayMs > 0 && { delay: delayMs }),
+        delay: delayMs && delayMs > 0 ? delayMs : undefined,
       });
       onSaved?.();
       return;

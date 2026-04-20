@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -146,7 +147,7 @@ function presetsToMocks(presets: MockPreset[]): NetworkMock[] {
     return {
       id: presetId,
       urlPattern: p.urlPattern,
-      method: p.method,
+      method: p.method.toUpperCase(),
       matchType: p.matchType ?? 'contains',
       // Resolved top-level fields always mirror the active variant so the
       // interceptor never needs to know about the variants structure.
@@ -232,10 +233,13 @@ export const NetworkLoggerProvider = ({
   );
 
   const hasRestoredMocksRef = useRef(false);
+  // Always holds the latest mocks so persistMocks can be a stable ref.
+  const mocksRef = useRef(state.mocks);
+  useEffect(() => { mocksRef.current = state.mocks; });
 
-  const persistMocks = async () => {
-    await AsyncStorage.setItem(MOCKS_STORAGE_KEY, JSON.stringify(state.mocks));
-  };
+  const persistMocks = useCallback(async () => {
+    await AsyncStorage.setItem(MOCKS_STORAGE_KEY, JSON.stringify(mocksRef.current));
+  }, []); // stable — reads from ref, never needs to change
 
   useEffect(() => {
     let isMounted = true;
@@ -280,7 +284,7 @@ export const NetworkLoggerProvider = ({
     persistMocks().catch(() => {
       // Ignore persistence failures and keep the logger usable.
     });
-  }, [state.mocks]);
+  }, [state.mocks, persistMocks]);
 
   const value = useMemo<NetworkLoggerContextValue>(() => {
     const selectedEntry = state.selectedEntryId
@@ -298,7 +302,7 @@ export const NetworkLoggerProvider = ({
       persistMocks,
       dispatch,
     };
-  }, [state, dispatch]);
+  }, [state, dispatch, persistMocks]);
 
   return (
     <NetworkLoggerContext.Provider value={value}>

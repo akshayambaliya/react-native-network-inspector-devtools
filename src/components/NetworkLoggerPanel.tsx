@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   FlatList,
@@ -117,6 +117,22 @@ export const NetworkLoggerPanel = () => {
     setEditingMock(undefined);
     setActiveTab('my-mocks');
   };
+
+  // Memoized so the object reference only changes when editingMock or mockPrefill
+  // actually changes — prevents the prefill effect inside MockEditor from firing
+  // repeatedly while the user is mid-edit due to unrelated parent re-renders.
+  const editorPrefill = useMemo<MockPrefill | undefined>(() => {
+    if (editingMock) {
+      return {
+        urlPattern: editingMock.urlPattern,
+        method: editingMock.method,
+        status: String(editingMock.status ?? ''),
+        responseBody: editingMock.responseBody,
+        matchType: editingMock.matchType,
+      };
+    }
+    return mockPrefill;
+  }, [editingMock, mockPrefill]);
   const renderLogs = () => {
     if (selectedEntry) {
       return (
@@ -310,16 +326,11 @@ export const NetworkLoggerPanel = () => {
           {activeTab === 'logs' && renderLogs()}
           {activeTab === 'add-mock' && (
             <MockEditor
-              prefill={editingMock ? {
-                urlPattern: editingMock.urlPattern,
-                method: editingMock.method,
-                status: String(editingMock.status ?? ''),
-                responseBody: editingMock.responseBody,
-                matchType: editingMock.matchType,
-              } : mockPrefill}
+              prefill={editorPrefill}
               onPrefillConsumed={() => {
+                // Only clear the log-entry prefill here.
+                // editingMock stays alive so editId remains valid until the user saves.
                 setMockPrefill(undefined);
-                setEditingMock(undefined);
               }}
               onSaved={handleMockSaved}
               editId={editingMock?.id}
