@@ -20,40 +20,26 @@ import type {
 import { initialState, reducer } from "./reducer";
 
 const MOCKS_STORAGE_KEY = 'react-native-network-inspector-devtools:mocks';
+const PRESETS_STORAGE_KEY = 'react-native-network-inspector-devtools:presets';
 
 function getMockKey(mock: Pick<NetworkMock, 'urlPattern' | 'method'>) {
   return `${mock.method.toUpperCase()}||${mock.urlPattern.toLowerCase()}`;
 }
 
-function mergeMocks(presetMocks: NetworkMock[], savedMocks: NetworkMock[]) {
-  const mergedPresets = presetMocks.map((preset) => {
-    const savedPreset = savedMocks.find(
-      (savedMock) => savedMock.source === 'preset' && savedMock.id === preset.id
-    );
-    if (!savedPreset) return preset;
-
-    const activeVariant =
-      preset.variants?.find((variant) => variant.id === savedPreset.activeVariantId) ??
-      preset.variants?.[0];
-
-    return {
-      ...preset,
-      enabled: savedPreset.enabled,
-      activeVariantId: activeVariant?.id ?? preset.activeVariantId,
-      status: activeVariant?.status ?? preset.status,
-      responseBody: activeVariant?.responseBody ?? preset.responseBody,
-      responseHeaders: activeVariant?.responseHeaders ?? preset.responseHeaders,
-      delay: activeVariant?.delay ?? preset.delay,
-    };
-  });
-
-  const presetKeys = new Set(mergedPresets.map((mock) => getMockKey(mock)));
-  const savedUserMocks = savedMocks.filter(
-    (mock) => mock.source !== 'preset' && !presetKeys.has(getMockKey(mock))
+function mergeUserMocks(
+  presetMocks: NetworkMock[],
+  savedUserMocks: NetworkMock[]
+) {
+  const presetKeys = new Set(presetMocks.map((mock) => getMockKey(mock)));
+  const newUserMocks = savedUserMocks.filter(
+    (mock) => !presetKeys.has(getMockKey(mock))
   );
-
-  return [...mergedPresets, ...savedUserMocks];
+  return [...presetMocks, ...newUserMocks];
 }
+
+const persistPresets = async (presets: NetworkMock[]) => {
+  await AsyncStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
+};
 
 function isNetworkMockArray(value: unknown): value is NetworkMock[] {
   return Array.isArray(value) && value.every((mock) => {
@@ -232,41 +218,98 @@ export const NetworkLoggerProvider = ({
     }),
   );
 
-  const hasRestoredMocksRef = useRef(false);
-  // Always holds the latest mocks so persistMocks can be a stable ref.
+  const hasRestoredRef = useRef(false);
+  // Holds latest mocks for persistMocks callback.
   const mocksRef = useRef(state.mocks);
   useEffect(() => { mocksRef.current = state.mocks; });
 
+  // Holds latest presets for separate persistence.
+  const presetsRef = useRef<NetworkMock[]>([]);
+
   const persistMocks = useCallback(async () => {
-    await AsyncStorage.setItem(MOCKS_STORAGE_KEY, JSON.stringify(mocksRef.current));
+    // Save only user mocks (non-preset) to the mocks storage key.
+    const userMocks = mocksRef.current.filter((m) => m.source !== 'preset');
+    await AsyncStorage.setItem(MOCKS_STORAGE_KEY, JSON.stringify(userMocks));
   }, []); // stable — reads from ref, never needs to change
+
+  // Separate useEffect to watch and persist presets independently.
+  useEffect(() => {
+    const currentPresets = state.mocks.filter((m) => m.source === 'preset');
+    const hasChanged =
+      currentPresets.length !== presetsRef.current.length ||
+      JSON.stringify(currentPresets) !== JSON.stringify(presetsRef.current);
+    if (hasChanged) {
+      presetsRef.current = currentPresets;
+      persistPresets(currentPresets).catch(() => {
+        // Ignore persistence failures.
+      });
+    }
+  }, [state.mocks]);
 
   useEffect(() => {
     let isMounted = true;
 
     const restoreMocks = async () => {
       try {
-        const stored = await AsyncStorage.getItem(MOCKS_STORAGE_KEY);
-        if (!stored || !isMounted) {
-          hasRestoredMocksRef.current = true;
-          return;
+        const storedPresets = await AsyncStorage.getItem(PRESETS_STORAGE_KEY);
+        let restoredPresets: NetworkMock[] = initialPresetMocks;
+        if (storedPresets && isMounted) {
+          try {
+            const parsedPresets = JSON.parse(storedPresets) as unknown;
+            if (isNetworkMockArray(parsedPresets)) {
+              if (initialPresetMocks.length > 0) {
+                restoredPresets = initialPresetMocks.map((preset) => {
+                  const savedPreset = parsedPresets.find(
+                    (saved) =>
+                      saved.id === preset.id ||
+                      getMockKey(saved) === getMockKey(preset)
+                  );
+                  if (!savedPreset) return preset;
+
+                  const activeVariant = preset.variants?.find(
+                    (v) => v.id === savedPreset.activeVariantId
+                  ) ?? preset.variants?.[0];
+
+                  return {
+                    ...preset,
+                    enabled: savedPreset.enabled,
+                    activeVariantId: activeVariant?.id ?? preset.activeVariantId,
+                    status: activeVariant?.status ?? preset.status,
+                    responseBody: activeVariant?.responseBody ?? preset.responseBody,
+                    responseHeaders: activeVariant?.responseHeaders ?? preset.responseHeaders,
+                    delay: activeVariant?.delay ?? preset.delay,
+                  };
+                });
+              } else {
+                restoredPresets = parsedPresets;
+              }
+            }
+          } catch {
+            // Ignore malformed stored presets, use initialPresetMocks.
+          }
         }
 
-        const parsed = JSON.parse(stored) as unknown;
-        if (!isNetworkMockArray(parsed)) {
-          hasRestoredMocksRef.current = true;
-          return;
+        // Load user mocks, merge with restored presets.
+        const storedUserMocks = await AsyncStorage.getItem(MOCKS_STORAGE_KEY);
+        let userMocks: NetworkMock[] = [];
+        if (storedUserMocks && isMounted) {
+          try {
+            const parsed = JSON.parse(storedUserMocks) as unknown;
+            if (isNetworkMockArray(parsed)) {
+              userMocks = parsed.filter((m) => m.source !== 'preset');
+            }
+          } catch {
+            // Ignore malformed stored mocks.
+          }
         }
 
-        dispatch({
-          type: 'HYDRATE_MOCKS',
-          payload: mergeMocks(initialPresetMocks, parsed),
-        });
+        const mergedMocks = mergeUserMocks(restoredPresets, userMocks);
+        dispatch({ type: 'HYDRATE_MOCKS', payload: mergedMocks });
       } catch {
         // Ignore persistence failures and continue with in-memory mocks.
       } finally {
         if (isMounted) {
-          hasRestoredMocksRef.current = true;
+          hasRestoredRef.current = true;
         }
       }
     };
@@ -279,7 +322,7 @@ export const NetworkLoggerProvider = ({
   }, [initialPresetMocks]);
 
   useEffect(() => {
-    if (!hasRestoredMocksRef.current) return;
+    if (!hasRestoredRef.current) return;
 
     persistMocks().catch(() => {
       // Ignore persistence failures and keep the logger usable.
