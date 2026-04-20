@@ -17,6 +17,7 @@ import { LogDetailView } from './LogDetailView';
 import { LogRow } from './LogRow';
 import { MockEditor, type MockPrefill } from './MockEditor';
 import { MockListView } from './MockListView';
+import { PresetImporter } from './PresetImporter';
 
 type Tab = 'logs' | 'add-mock' | 'my-mocks' | 'presets';
 
@@ -337,8 +338,13 @@ export const NetworkLoggerPanel = () => {
               onUpdate={(id, patch) => dispatch({ type: 'UPDATE_MOCK', payload: { id, patch } })}
             />
           )}
-          {activeTab === 'my-mocks' && <MockListView source="user" onEditMock={handleEditMock} />}
-          {activeTab === 'presets' && <MockListView source="preset" />}
+{activeTab === 'my-mocks' && <MockListView source="user" onEditMock={handleEditMock} />}
+          {activeTab === 'presets' && (
+            <>
+              <PresetImporter onImport={(presets) => dispatch({ type: 'ADD_PRESETS', payload: presets })} />
+              <MockListView source="preset" />
+            </>
+          )}
         </View>
       </View>
     </Modal>
