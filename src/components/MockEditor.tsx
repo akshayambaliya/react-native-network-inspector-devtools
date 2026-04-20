@@ -299,9 +299,16 @@ interface Props {
   onPrefillConsumed?: () => void;
   /** Called after a mock rule is successfully saved. Use this to navigate to the Mocks list tab. */
   onSaved?: () => void;
+  /** ID of the mock being edited. When provided, the editor operates in edit mode. */
+  editId?: string;
+  /**
+   * Callback for update mode. Called with the mock ID and the updated fields.
+   * Only used when editId is provided.
+   */
+  onUpdate?: (id: string, patch: Partial<NetworkMock>) => void;
 }
 
-export const MockEditor = ({ prefill, onPrefillConsumed, onSaved }: Props) => {
+export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpdate }: Props) => {
   const { dispatch } = useNetworkLogger();
   const theme = useTheme();
 
@@ -311,6 +318,9 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved }: Props) => {
   const [statusCode, setStatusCode] = useState("200");
   const [responseBody, setResponseBody] = useState("");
   const [delaySec, setDelaySec] = useState(""); // empty = no delay
+
+  const isEditing = !!editId;
+  const title = isEditing ? "Edit Mock Rule" : "New Mock Rule";
 
   // Per-field validation errors — only shown after the field has been touched
   // (blurred at least once) or after a failed save attempt.
@@ -386,6 +396,23 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved }: Props) => {
       ? Math.round(parseFloat(delaySec) * 1000)
       : undefined;
 
+    if (isEditing && onUpdate) {
+      // Update existing mock.
+      // Always include delay (even as undefined) so that clearing the field
+      // actually removes an existing delay rather than silently preserving it.
+      onUpdate(editId, {
+        urlPattern: urlPattern.trim(),
+        matchType,
+        method,
+        status: parseInt(statusCode, 10),
+        responseBody: responseBody.trim(),
+        delay: delayMs && delayMs > 0 ? delayMs : undefined,
+      });
+      onSaved?.();
+      return;
+    }
+
+    // Create new mock
     const mock: NetworkMock = {
       id: `mock-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, // NOSONAR
       urlPattern: urlPattern.trim(),
@@ -429,7 +456,7 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved }: Props) => {
       >
         <View style={[styles.card, { backgroundColor: theme.background }]}>
           <Text style={[styles.cardTitle, { color: theme.text }]}>
-            New Mock Rule
+            {title}
           </Text>
 
           {/* ── URL Pattern ── */}

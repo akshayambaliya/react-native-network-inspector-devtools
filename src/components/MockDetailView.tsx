@@ -15,6 +15,8 @@ import type { NetworkMock } from '../types';
 interface Props {
   mock: NetworkMock;
   onBack: () => void;
+  /** Called when the user clicks the Edit button. Only provided for user mocks. */
+  onEdit?: (mock: NetworkMock) => void;
 }
 
 /**
@@ -48,11 +50,13 @@ const prettyPrint = (value: unknown): string => {
   }
 };
 
-export const MockDetailView = ({ mock, onBack }: Props) => {
+export const MockDetailView = ({ mock, onBack, onEdit }: Props) => {
   const { dispatch } = useNetworkLogger();
   const theme = useTheme();
 
   const isPreset = mock.source === 'preset';
+  const isUserMock = mock.source === 'user';
+  const canEdit = isUserMock && !!onEdit;
   const prettyBody = prettyPrint(mock.responseBody);
   const safeStatus = mock.status ?? 0;
   const matchType = mock.matchType ?? 'contains';
@@ -91,6 +95,18 @@ export const MockDetailView = ({ mock, onBack }: Props) => {
             accessibilityLabel={`Toggle mock for ${mock.urlPattern}`}
             accessibilityRole="switch"
           />
+          {canEdit && (
+            <TouchableOpacity
+              onPress={() => onEdit!(mock)}
+              style={styles.editButton}
+              accessibilityRole="button"
+              accessibilityLabel={`Edit mock for ${mock.urlPattern}`}
+            >
+              <Text style={[styles.editButtonText, { color: theme.primary }]}>
+                Edit
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -336,6 +352,16 @@ const styles = StyleSheet.create({
   headerRight: {
     minWidth: 64,
     alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  editButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  editButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   scroll: { flex: 1 },
   content: {

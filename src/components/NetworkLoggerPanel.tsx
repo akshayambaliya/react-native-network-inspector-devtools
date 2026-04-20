@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   FlatList,
@@ -12,7 +12,7 @@ import {
 
 import { useNetworkLogger } from '../context/NetworkLoggerContext';
 import { useTheme } from '../theme';
-import type { NetworkLogEntry } from '../types';
+import type { NetworkLogEntry, NetworkMock } from '../types';
 import { LogDetailView } from './LogDetailView';
 import { LogRow } from './LogRow';
 import { MockEditor, type MockPrefill } from './MockEditor';
@@ -76,6 +76,7 @@ export const NetworkLoggerPanel = () => {
   const [activeTab, setActiveTab] = useState<Tab>('logs');
   const [mockPrefill, setMockPrefill] = useState<MockPrefill | undefined>(undefined);
   const [filter, setFilter] = useState('');
+  const [editingMock, setEditingMock] = useState<NetworkMock | undefined>(undefined);
 
   const filteredEntries = filter.trim()
     ? entries.filter(
@@ -106,6 +107,33 @@ export const NetworkLoggerPanel = () => {
     setMockPrefill(prefill);
     setActiveTab('add-mock');
   };
+
+  const handleEditMock = (mock: NetworkMock) => {
+    setEditingMock(mock);
+    setActiveTab('add-mock');
+  };
+
+  const handleMockSaved = () => {
+    setMockPrefill(undefined);
+    setEditingMock(undefined);
+    setActiveTab('my-mocks');
+  };
+
+  // Memoized so the object reference only changes when editingMock or mockPrefill
+  // actually changes — prevents the prefill effect inside MockEditor from firing
+  // repeatedly while the user is mid-edit due to unrelated parent re-renders.
+  const editorPrefill = useMemo<MockPrefill | undefined>(() => {
+    if (editingMock) {
+      return {
+        urlPattern: editingMock.urlPattern,
+        method: editingMock.method,
+        status: String(editingMock.status ?? ''),
+        responseBody: editingMock.responseBody,
+        matchType: editingMock.matchType,
+      };
+    }
+    return mockPrefill;
+  }, [editingMock, mockPrefill]);
   const renderLogs = () => {
     if (selectedEntry) {
       return (
@@ -299,12 +327,18 @@ export const NetworkLoggerPanel = () => {
           {activeTab === 'logs' && renderLogs()}
           {activeTab === 'add-mock' && (
             <MockEditor
-              prefill={mockPrefill}
-              onPrefillConsumed={() => setMockPrefill(undefined)}
-              onSaved={() => setActiveTab('my-mocks')}
+              prefill={editorPrefill}
+              onPrefillConsumed={() => {
+                // Only clear the log-entry prefill here.
+                // editingMock stays alive so editId remains valid until the user saves.
+                setMockPrefill(undefined);
+              }}
+              onSaved={handleMockSaved}
+              editId={editingMock?.id}
+              onUpdate={(id, patch) => dispatch({ type: 'UPDATE_MOCK', payload: { id, patch } })}
             />
           )}
-          {activeTab === 'my-mocks' && <MockListView source="user" />}
+{activeTab === 'my-mocks' && <MockListView source="user" onEditMock={handleEditMock} />}
           {activeTab === 'presets' && (
             <>
               <PresetImporter onImport={(presets) => dispatch({ type: 'ADD_PRESETS', payload: presets })} />

@@ -94,7 +94,7 @@ const findBestMock = (
   let best: NetworkMock | undefined;
   let bestScore = -1;
   for (const mock of candidates) {
-    if (mock.method !== method) continue;
+    if ((mock.method ?? '').toUpperCase() !== method) continue;
     const score = urlMatchScore(url, mock);
     if (score !== null && score > bestScore) {
       bestScore = score;

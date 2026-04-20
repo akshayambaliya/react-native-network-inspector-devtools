@@ -31,6 +31,8 @@ export function reducer(
       return { ...state, isVisible: action.payload };
     case 'SET_SELECTED_ENTRY':
       return { ...state, selectedEntryId: action.payload };
+    case 'HYDRATE_MOCKS':
+      return { ...state, mocks: action.payload };
     case 'ADD_MOCK': {
       // Deduplicate only within user-added mocks.
       // Preset mocks with the same URL+method are intentionally kept — the
@@ -62,6 +64,33 @@ export function reducer(
         activeVariantId: defaultVariantId,
       };
       return { ...state, mocks: [...filtered, withData] };
+    }
+    case 'UPDATE_MOCK': {
+      return {
+        ...state,
+        mocks: state.mocks.map((m) => {
+          if (m.id !== action.payload.id) return m;
+          const patched = { ...m, ...action.payload.patch };
+          // Keep the active variant in sync with the top-level fields that were
+          // patched. This prevents SET_MOCK_VARIANT from reverting to stale data
+          // after the user edits a mock through MockEditor.
+          const { patch } = action.payload;
+          if (patched.variants?.length && patched.activeVariantId) {
+            patched.variants = patched.variants.map((v) =>
+              v.id === patched.activeVariantId
+                ? {
+                    ...v,
+                    ...('status' in patch && { status: patch.status }),
+                    ...('responseBody' in patch && { responseBody: patch.responseBody }),
+                    ...('delay' in patch && { delay: patch.delay }),
+                    ...('responseHeaders' in patch && { responseHeaders: patch.responseHeaders }),
+                  }
+                : v
+            );
+          }
+          return patched;
+        }),
+      };
     }
     case 'REMOVE_MOCK':
       return { ...state, mocks: state.mocks.filter((m) => m.id !== action.payload) };
