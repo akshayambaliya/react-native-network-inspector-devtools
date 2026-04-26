@@ -82,6 +82,12 @@ export interface NetworkMock {
    * `0` or `undefined` means respond immediately.
    */
   delay?: number;
+  /**
+   * When `true` the mock is pinned to the top of the list in the Mocks / Presets tabs.
+   * Pinned mocks are sorted before unpinned ones; the relative order within each
+   * group is preserved (insertion order).
+   */
+  pinned?: boolean;
 }
 
 /**
@@ -215,4 +221,5 @@ export type NetworkLoggerAction =
   | { type: 'UPDATE_MOCK'; payload: { id: string; patch: Partial<NetworkMock> } }
   | { type: 'REMOVE_MOCK'; payload: string }
   | { type: 'TOGGLE_MOCK'; payload: string }
+  | { type: 'TOGGLE_MOCK_PIN'; payload: string }
   | { type: 'SET_MOCK_VARIANT'; payload: { mockId: string; variantId: string } };

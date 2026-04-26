@@ -21,10 +21,6 @@ import { initialState, reducer } from "./reducer";
 
 const MOCKS_STORAGE_KEY = 'react-native-network-inspector-devtools:mocks';
 
-function getMockKey(mock: Pick<NetworkMock, 'urlPattern' | 'method'>) {
-  return `${mock.method.toUpperCase()}||${mock.urlPattern.toLowerCase()}`;
-}
-
 function mergeMocks(presetMocks: NetworkMock[], savedMocks: NetworkMock[]) {
   const mergedPresets = presetMocks.map((preset) => {
     const savedPreset = savedMocks.find(
@@ -39,6 +35,8 @@ function mergeMocks(presetMocks: NetworkMock[], savedMocks: NetworkMock[]) {
     return {
       ...preset,
       enabled: savedPreset.enabled,
+      // Carry over pinned state the user set at runtime.
+      pinned: savedPreset.pinned,
       activeVariantId: activeVariant?.id ?? preset.activeVariantId,
       status: activeVariant?.status ?? preset.status,
       responseBody: activeVariant?.responseBody ?? preset.responseBody,
@@ -47,28 +45,26 @@ function mergeMocks(presetMocks: NetworkMock[], savedMocks: NetworkMock[]) {
     };
   });
 
-  const presetKeys = new Set(mergedPresets.map((mock) => getMockKey(mock)));
-  const savedUserMocks = savedMocks.filter(
-    (mock) => mock.source !== 'preset' && !presetKeys.has(getMockKey(mock))
-  );
+  // Persisted user mocks are always retained, even when they share URL+method
+  // with a preset. This is required for long-lived user overrides across app
+  // restarts (the request matcher already prioritizes user mocks first).
+  const savedUserMocks = savedMocks.filter((mock) => mock.source !== 'preset');
 
   return [...mergedPresets, ...savedUserMocks];
 }
 
-function isNetworkMockArray(value: unknown): value is NetworkMock[] {
-  return Array.isArray(value) && value.every((mock) => {
-    if (!mock || typeof mock !== 'object') return false;
+function isNetworkMock(value: unknown): value is NetworkMock {
+  if (!value || typeof value !== 'object') return false;
 
-    const candidate = mock as Partial<NetworkMock>;
-    return (
-      typeof candidate.id === 'string' &&
-      typeof candidate.urlPattern === 'string' &&
-      typeof candidate.method === 'string' &&
-      typeof candidate.status === 'number' &&
-      typeof candidate.responseBody === 'string' &&
-      typeof candidate.enabled === 'boolean'
-    );
-  });
+  const candidate = value as Partial<NetworkMock>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.urlPattern === 'string' &&
+    typeof candidate.method === 'string' &&
+    typeof candidate.status === 'number' &&
+    typeof candidate.responseBody === 'string' &&
+    typeof candidate.enabled === 'boolean'
+  );
 }
 
 /**
@@ -253,14 +249,18 @@ export const NetworkLoggerProvider = ({
         }
 
         const parsed = JSON.parse(stored) as unknown;
-        if (!isNetworkMockArray(parsed)) {
+        if (!Array.isArray(parsed)) {
           hasRestoredMocksRef.current = true;
           return;
         }
 
+        // Keep valid records even if storage contains a partially corrupted item.
+        // This avoids dropping all saved mocks because of one bad entry.
+        const validSavedMocks = parsed.filter(isNetworkMock);
+
         dispatch({
           type: 'HYDRATE_MOCKS',
-          payload: mergeMocks(initialPresetMocks, parsed),
+          payload: mergeMocks(initialPresetMocks, validSavedMocks),
         });
       } catch {
         // Ignore persistence failures and continue with in-memory mocks.

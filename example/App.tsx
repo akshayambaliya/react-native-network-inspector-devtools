@@ -18,7 +18,9 @@ import { NetworkLogger } from "react-native-network-inspector-devtools";
  *  - Renders the draggable FAB + slide-up panel
  */
 export default function App() {
-  const [detailParams, setDetailParams] = useState<DetailScreenParams | null>(null);
+  const [detailParams, setDetailParams] = useState<DetailScreenParams | null>(
+    null,
+  );
 
   return (
     <NetworkLogger
@@ -32,10 +34,7 @@ export default function App() {
       fabPosition={{ bottom: 40, right: 20 }}
     >
       {detailParams ? (
-        <DetailsScreen
-          {...detailParams}
-          onBack={() => setDetailParams(null)}
-        />
+        <DetailsScreen {...detailParams} onBack={() => setDetailParams(null)} />
       ) : (
         <HomeScreen onNavigate={setDetailParams} />
       )}

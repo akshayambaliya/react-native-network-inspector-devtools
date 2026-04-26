@@ -103,6 +103,9 @@ export const NetworkLoggerPanel = () => {
 
   const handleMock = (prefill: MockPrefill) => {
     dispatch({ type: 'SET_SELECTED_ENTRY', payload: null });
+    // Clear any in-progress edit session so the log-entry prefill is not
+    // shadowed by a previously opened Edit Mock form.
+    setEditingMock(undefined);
     setMockPrefill(prefill);
     setActiveTab('add-mock');
   };
@@ -129,6 +132,8 @@ export const NetworkLoggerPanel = () => {
         status: String(editingMock.status ?? ''),
         responseBody: editingMock.responseBody,
         matchType: editingMock.matchType,
+        // Pass delay so the editor field is pre-populated when editing an existing mock.
+        delay: editingMock.delay,
       };
     }
     return mockPrefill;

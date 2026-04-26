@@ -100,6 +100,13 @@ export function reducer(
           m.id === action.payload ? { ...m, enabled: !m.enabled } : m
         ),
       };
+    case 'TOGGLE_MOCK_PIN':
+      return {
+        ...state,
+        mocks: state.mocks.map((m) =>
+          m.id === action.payload ? { ...m, pinned: !m.pinned } : m
+        ),
+      };
     case 'SET_MOCK_VARIANT': {
       const { mockId, variantId } = action.payload;
       return {

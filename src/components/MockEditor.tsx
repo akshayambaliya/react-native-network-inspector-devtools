@@ -20,6 +20,8 @@ export interface MockPrefill {
   status: string;
   responseBody: string;
   matchType?: MockUrlMatchType;
+  /** Delay in milliseconds. Converted to seconds for the delay field display. */
+  delay?: number;
 }
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
@@ -345,6 +347,12 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
     setMethod(METHODS.includes(prefill.method) ? prefill.method : "GET");
     setStatusCode(prefill.status || "200");
     setResponseBody(prettyPrint(prefill.responseBody));
+    // Convert stored milliseconds → seconds string for the delay field (empty = no delay).
+    setDelaySec(
+      prefill.delay && prefill.delay > 0
+        ? String(prefill.delay / 1000)
+        : ''
+    );
     setFieldErrors({});
     setTouched({ url: false, status: false, body: false, delay: false });
     onPrefillConsumed?.();

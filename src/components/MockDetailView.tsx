@@ -86,15 +86,18 @@ export const MockDetailView = ({ mock, onBack, onEdit }: Props) => {
         <Text style={[styles.headerTitle, { color: theme.text }]}>Mock Details</Text>
 
         <View style={styles.headerRight}>
-          <Switch
-            value={mock.enabled}
-            onValueChange={() =>
-              dispatch({ type: 'TOGGLE_MOCK', payload: mock.id })
-            }
-            trackColor={{ false: '#767577', true: theme.primary }}
-            accessibilityLabel={`Toggle mock for ${mock.urlPattern}`}
-            accessibilityRole="switch"
-          />
+          <View style={styles.switchWrapper}>
+            <Switch
+              value={mock.enabled}
+              onValueChange={() =>
+                dispatch({ type: 'TOGGLE_MOCK', payload: mock.id })
+              }
+              trackColor={{ false: '#767577', true: theme.primary }}
+              style={styles.switch}
+              accessibilityLabel={`Toggle mock for ${mock.urlPattern}`}
+              accessibilityRole="switch"
+            />
+          </View>
           {canEdit && (
             <TouchableOpacity
               onPress={() => onEdit!(mock)}
@@ -551,5 +554,14 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 12,
     lineHeight: 18,
+  },
+  switchWrapper: {
+    width: 52,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  switch: {
+    transform: [{ scaleX: 0.82 }, { scaleY: 0.82 }],
   },
 });

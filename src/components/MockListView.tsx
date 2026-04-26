@@ -25,9 +25,15 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
   const theme = useTheme();
 
   // Filter to only the relevant source for this view.
-  const visibleMocks = mocks.filter((m) =>
+  const filtered = mocks.filter((m) =>
     source === 'preset' ? m.source === 'preset' : m.source !== 'preset'
   );
+
+  // Pinned mocks float to the top; order within each group is preserved.
+  const visibleMocks = [
+    ...filtered.filter((m) => m.pinned),
+    ...filtered.filter((m) => !m.pinned),
+  ];
 
   // ID of the currently selected mock. We look it up live from `mocks` so
   // that toggle changes made inside MockDetailView are immediately reflected.
@@ -64,6 +70,7 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
 
   const renderRow = (mock: NetworkMock) => {
     const isPreset = mock.source === 'preset';
+    const isPinned = mock.pinned === true;
     const safeStatus = mock.status ?? 0;
     const statusColor =
       safeStatus >= 200 && safeStatus < 300
@@ -76,7 +83,10 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
         key={mock.id}
         style={[
           styles.mockRow,
-          { borderColor: theme.border, backgroundColor: theme.surface },
+          {
+            borderColor: isPinned ? theme.primary : theme.border,
+            backgroundColor: theme.surface,
+          },
         ]}
         onPress={() => setSelectedId(mock.id)}
         activeOpacity={0.7}
@@ -162,15 +172,44 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
         </View>
 
         <View style={styles.actions}>
-          <Switch
-            value={mock.enabled}
-            onValueChange={() =>
-              dispatch({ type: 'TOGGLE_MOCK', payload: mock.id })
+          {/* Pin / Unpin button — sits at the top of the actions column */}
+          <TouchableOpacity
+            onPress={() =>
+              dispatch({ type: 'TOGGLE_MOCK_PIN', payload: mock.id })
             }
-            trackColor={{ false: '#767577', true: theme.primary }}
-            accessibilityLabel={`Toggle mock for ${mock.urlPattern}`}
-            accessibilityRole="switch"
-          />
+            style={[
+              styles.pinButton,
+              isPinned
+                ? { backgroundColor: theme.primary }
+                : { borderColor: theme.border, borderWidth: StyleSheet.hairlineWidth },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={isPinned ? `Unpin mock for ${mock.urlPattern}` : `Pin mock for ${mock.urlPattern} to top`}
+            accessibilityState={{ selected: isPinned }}
+          >
+            <Text style={[styles.pinButtonText, { color: isPinned ? '#FFFFFF' : theme.textSecondary }]}>
+              📌
+            </Text>
+          </TouchableOpacity>
+
+          {/*
+           * iOS 26 "Liquid Glass" UISwitch is significantly larger than older
+           * versions. Wrapping in a fixed-size container and applying a scale
+           * transform normalises the visual and layout footprint across all
+           * iOS versions without any Platform guards.
+           */}
+          <View style={styles.switchWrapper}>
+            <Switch
+              value={mock.enabled}
+              onValueChange={() =>
+                dispatch({ type: 'TOGGLE_MOCK', payload: mock.id })
+              }
+              trackColor={{ false: '#767577', true: theme.primary }}
+              style={styles.switch}
+              accessibilityLabel={`Toggle mock for ${mock.urlPattern}`}
+              accessibilityRole="switch"
+            />
+          </View>
           {!isPreset && (
             <TouchableOpacity
               onPress={() =>
@@ -230,7 +269,9 @@ const styles = StyleSheet.create({
 
   mockRow: {
     flexDirection: "row",
-    alignItems: "center",
+    // flex-start so the actions column pins to the top of the row;
+    // this looks clean whether the URL is 1 or 2 lines.
+    alignItems: "flex-start",
     justifyContent: "space-between",
     padding: 12,
     borderRadius: 10,
@@ -288,7 +329,7 @@ const styles = StyleSheet.create({
   },
   mockUrl: {
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   actions: {
     flexDirection: "row",
@@ -304,6 +345,16 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "600",
+  },
+  pinButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pinButtonText: {
+    fontSize: 14,
   },
   chevron: {
     fontSize: 20,
@@ -324,5 +375,20 @@ const styles = StyleSheet.create({
   variantChipText: {
     fontSize: 11,
     fontWeight: "600",
+  },
+  /**
+   * Provides a stable layout box for the Switch so the larger iOS 26
+   * "Liquid Glass" toggle doesn't push neighbouring elements around.
+   * The scaleX/scaleY transform shrinks the rendered switch to a size
+   * consistent with the pre-iOS-26 UISwitch dimensions.
+   */
+  switchWrapper: {
+    width: 52,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  switch: {
+    transform: [{ scaleX: 0.82 }, { scaleY: 0.82 }],
   },
 });
