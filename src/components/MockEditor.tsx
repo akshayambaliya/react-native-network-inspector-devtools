@@ -685,7 +685,7 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: { flex: 1 },
-  content: { padding: 16, paddingBottom: 40, gap: 16 },
+  content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40, gap: 16 },
   card: { borderRadius: 12, padding: 16, gap: 10 },
   cardTitle: {
     fontSize: 15,

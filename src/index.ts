@@ -15,6 +15,8 @@ export { MockEditor } from './components/MockEditor';
 export type { MockPrefill } from './components/MockEditor';
 export { MockListView } from './components/MockListView';
 export { MockDetailView } from './components/MockDetailView';
+export { ConsoleListView } from './components/ConsoleListView';
+export { ConsoleDetailView } from './components/ConsoleDetailView';
 
 // Low-level API (for manual interceptor installation)
 export { installInterceptors } from './utils/interceptor';
@@ -25,6 +27,8 @@ export type { Theme } from './theme';
 
 // Types
 export type {
+  ConsoleEntry,
+  ConsoleLogLevel,
   HttpMethod,
   MockPreset,
   MockPresetVariant,

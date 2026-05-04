@@ -28,6 +28,11 @@ export interface NetworkLoggerProps extends NetworkLoggerProviderProps {
    * ```
    */
   enabled?: boolean;
+  /**
+   * Automatically capture JS console output and show it in the Console tab.
+   * Defaults to `true`. Set to `false` to disable interception and hide the tab.
+   */
+  enableConsoleCapture?: boolean;
   /** Override the FAB's default position (bottom: 90, right: 16). */
   fabPosition?: {
     bottom?: number;

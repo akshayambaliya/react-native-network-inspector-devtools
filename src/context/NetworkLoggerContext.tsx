@@ -11,6 +11,7 @@ import React, {
 } from "react";
 
 import type {
+  ConsoleEntry,
   MockPreset,
   MockVariant,
   NetworkLogEntry,
@@ -18,6 +19,7 @@ import type {
   NetworkMock,
 } from "../types";
 import { initialState, reducer } from "./reducer";
+import { subscribeToConsoleEntries } from '../utils/consoleInterceptor';
 
 const MOCKS_STORAGE_KEY = 'react-native-network-inspector-devtools:mocks';
 
@@ -161,7 +163,9 @@ function presetsToMocks(presets: MockPreset[]): NetworkMock[] {
 
 export interface NetworkLoggerContextValue {
   entries: NetworkLogEntry[];
+  consoleEntries: ConsoleEntry[];
   mocks: NetworkMock[];
+  consoleCaptureEnabled: boolean;
   /** Mocks that are currently enabled and will intercept matching requests. */
   activeMocks: NetworkMock[];
   isVisible: boolean;
@@ -181,6 +185,12 @@ export interface NetworkLoggerProviderProps {
   children: React.ReactNode;
   /** Maximum number of log entries to retain. Oldest are dropped. Defaults to 200. */
   maxEntries?: number;
+  /**
+   * Automatically capture console.log/info/warn/error after the provider mounts.
+   * Defaults to `true`. Set to `false` to disable console interception,
+   * remove the Console tab from the UI, and avoid installing the listener.
+   */
+  enableConsoleCapture?: boolean;
   /**
    * Pre-load a set of mock rules at startup. These appear immediately in the
    * Mocks tab with a **PRESET** badge, are active by default, and can be
@@ -210,6 +220,7 @@ export interface NetworkLoggerProviderProps {
 export const NetworkLoggerProvider = ({
   children,
   maxEntries = 200,
+  enableConsoleCapture = true,
   initialMocks,
 }: NetworkLoggerProviderProps) => {
   const initialPresetMocks = useMemo(
@@ -286,6 +297,14 @@ export const NetworkLoggerProvider = ({
     });
   }, [state.mocks, persistMocks]);
 
+  useEffect(() => {
+    if (!enableConsoleCapture) return;
+
+    return subscribeToConsoleEntries((entry) => {
+      dispatch({ type: 'ADD_CONSOLE_ENTRY', payload: entry });
+    });
+  }, [dispatch, enableConsoleCapture]);
+
   const value = useMemo<NetworkLoggerContextValue>(() => {
     const selectedEntry = state.selectedEntryId
       ? (state.entries.find((e) => e.id === state.selectedEntryId) ?? null)
@@ -294,7 +313,9 @@ export const NetworkLoggerProvider = ({
 
     return {
       entries: state.entries,
+      consoleEntries: state.consoleEntries,
       mocks: state.mocks,
+      consoleCaptureEnabled: enableConsoleCapture,
       activeMocks,
       isVisible: state.isVisible,
       maxEntries: state.maxEntries,
@@ -302,7 +323,7 @@ export const NetworkLoggerProvider = ({
       persistMocks,
       dispatch,
     };
-  }, [state, dispatch, persistMocks]);
+  }, [state, dispatch, persistMocks, enableConsoleCapture]);
 
   return (
     <NetworkLoggerContext.Provider value={value}>

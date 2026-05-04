@@ -91,7 +91,7 @@ Tap the floating button inside your app to inspect every outgoing axios request 
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **One-component setup**        | A single `<NetworkLogger>` wrapper replaces all manual wiring.                                                                                                                                                                   |
 | **Live request inspector**     | View URL, method, headers, request body, response body, status, and duration for every request.                                                                                                                                  |
-| **Search & filter**            | Filter logs by URL or HTTP method in real time.                                                                                                                                                                                  |
+| **Search & filter**            | Filter logs by URL/method, filter console entries by level/content, and search presets by method, URL, or variant name.                                                                                                        |
 | **Export logs**                | Share any request/response as formatted JSON via the native share sheet on every field, section header, and from the detail screen header.                                                                                       |
 | **Response mocking**           | Force any endpoint to return a custom response without touching the server.                                                                                                                                                      |
 | **Mock variants**              | Each rule carries multiple response scenarios; QA switches between them instantly at runtime without restarting the app.                                                                                                         |
@@ -99,7 +99,9 @@ Tap the floating button inside your app to inspect every outgoing axios request 
 | **Smart match priority**       | `exact` beats `regex` beats `contains`; longer patterns beat shorter within the same type; user mocks always beat presets.                                                                                                       |
 | **Correct 4xx/5xx behaviour**  | Mocked error responses throw an `AxiosError` with `error.response` populated, so your `catch` blocks fire exactly as they would with a real server.                                                                              |
 | **One-tap mock prefill**       | Tap any log row → **Mock** to pre-fill the editor instantly.                                                                                                                                                                     |
-| **4-tab panel**                | Logs / Add Mock / My Mocks / Presets. The **My Mocks** and **Presets** tabs each show a green ping dot when at least one mock in that category is currently enabled a quick in-panel signal that requests are being intercepted. |
+| **Preset controls**            | The Presets tab includes a search box and an **All Presets** switch to enable/disable every preset mock in one action.                                                                                                         |
+| **5-tab panel**                | Logs / Add Mock / My Mocks / Presets / Console. The **My Mocks** and **Presets** tabs show a green ping dot when at least one mock in that category is enabled.                                                               |
+| **Automatic console capture**  | Captures `console.log`, `console.info`, `console.warn`, and `console.error` after mount and shows them in the Console tab with large-payload-safe rendering.                                                                    |
 | **Mock active indicator**      | A **green dot** appears on the FAB corner whenever one or more mocks are enabled, so you can see interception is active without opening the panel at all.                                                                        |
 | **Draggable FAB**              | Drag the floating button to any corner of the screen at runtime.                                                                                                                                                                 |
 | **Dark mode**                  | Follows the device color scheme automatically.                                                                                                                                                                                   |
@@ -331,6 +333,7 @@ All-in-one wrapper component. Recommended for most use cases.
 | `instance`     | `AxiosInstance`                    | —                           | A single axios instance to intercept.                                               |
 | `instances`    | `AxiosInstance[]`                  | —                           | Multiple axios instances. Can be combined with `instance`.                          |
 | `initialMocks` | `MockPreset[]`                     | —                           | Pre-load mock rules at startup. Appear in the **Presets** tab with a badge.         |
+| `enableConsoleCapture` | `boolean`                 | `true`                      | Capture JS console output and show the **Console** tab. Set `false` to disable listener setup and hide the tab. |
 | `fabPosition`  | `{ bottom?, top?, left?, right? }` | `{ bottom: 90, right: 16 }` | Starting position of the floating button. Draggable at runtime.                     |
 | `maxEntries`   | `number`                           | `200`                       | Maximum log entries to retain. Oldest are dropped when the cap is reached.          |
 | `children`     | `ReactNode`                        | —                           | Your app tree.                                                                      |
@@ -343,11 +346,12 @@ All-in-one wrapper component. Recommended for most use cases.
 
 Context provider for the manual setup pattern.
 
-| Prop           | Type           | Default | Description                     |
-| -------------- | -------------- | ------- | ------------------------------- |
-| `initialMocks` | `MockPreset[]` | —       | Pre-load mock rules at startup. |
-| `maxEntries`   | `number`       | `200`   | Maximum log entries to retain.  |
-| `children`     | `ReactNode`    | —       | Your app tree.                  |
+| Prop                   | Type           | Default | Description                                                                 |
+| ---------------------- | -------------- | ------- | --------------------------------------------------------------------------- |
+| `initialMocks`         | `MockPreset[]` | —       | Pre-load mock rules at startup.                                             |
+| `maxEntries`           | `number`       | `200`   | Maximum log entries to retain (applies to network + console entries).       |
+| `enableConsoleCapture` | `boolean`      | `true`  | Capture JS console output and expose the Console tab. Set `false` to disable. |
+| `children`             | `ReactNode`    | —       | Your app tree.                                                              |
 
 ---
 

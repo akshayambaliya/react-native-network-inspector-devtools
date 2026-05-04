@@ -30,6 +30,18 @@ export interface NetworkLogEntry {
   isMocked: boolean;
 }
 
+export type ConsoleLogLevel = 'log' | 'info' | 'warn' | 'error';
+
+export interface ConsoleEntry {
+  id: string;
+  level: ConsoleLogLevel;
+  /** Single-line preview used in the list UI. */
+  message: string;
+  /** Full formatted payload shown in the detail view. */
+  detail: string;
+  timestamp: number;
+}
+
 /**
  * A single response variant for a mock rule.
  * Each mock can carry multiple variants (success, error, empty…) and the
@@ -204,6 +216,7 @@ export interface MockPreset {
 
 export interface NetworkLoggerState {
   entries: NetworkLogEntry[];
+  consoleEntries: ConsoleEntry[];
   mocks: NetworkMock[];
   isVisible: boolean;
   selectedEntryId: string | null;
@@ -214,6 +227,8 @@ export type NetworkLoggerAction =
   | { type: 'ADD_ENTRY'; payload: NetworkLogEntry }
   | { type: 'UPDATE_ENTRY'; payload: { id: string; patch: Partial<NetworkLogEntry> } }
   | { type: 'CLEAR_ENTRIES' }
+  | { type: 'ADD_CONSOLE_ENTRY'; payload: ConsoleEntry }
+  | { type: 'CLEAR_CONSOLE_ENTRIES' }
   | { type: 'SET_VISIBLE'; payload: boolean }
   | { type: 'SET_SELECTED_ENTRY'; payload: string | null }
   | { type: 'HYDRATE_MOCKS'; payload: NetworkMock[] }
@@ -221,5 +236,6 @@ export type NetworkLoggerAction =
   | { type: 'UPDATE_MOCK'; payload: { id: string; patch: Partial<NetworkMock> } }
   | { type: 'REMOVE_MOCK'; payload: string }
   | { type: 'TOGGLE_MOCK'; payload: string }
+  | { type: 'SET_SOURCE_MOCKS_ENABLED'; payload: { source: 'preset' | 'user'; enabled: boolean } }
   | { type: 'TOGGLE_MOCK_PIN'; payload: string }
   | { type: 'SET_MOCK_VARIANT'; payload: { mockId: string; variantId: string } };

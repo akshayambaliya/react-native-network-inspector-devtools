@@ -3,6 +3,7 @@ import {
   Animated,
   FlatList,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,11 +15,12 @@ import { useNetworkLogger } from '../context/NetworkLoggerContext';
 import { useTheme } from '../theme';
 import type { NetworkLogEntry, NetworkMock } from '../types';
 import { LogDetailView } from './LogDetailView';
+import { ConsoleListView } from './ConsoleListView';
 import { LogRow } from './LogRow';
 import { MockEditor, type MockPrefill } from './MockEditor';
 import { MockListView } from './MockListView';
 
-type Tab = 'logs' | 'add-mock' | 'my-mocks' | 'presets';
+type Tab = 'logs' | 'console' | 'add-mock' | 'my-mocks' | 'presets';
 
 const PingDot = ({ color }: { color: string }) => {
   const scale = useRef(new Animated.Value(1)).current;
@@ -69,7 +71,7 @@ const PingDot = ({ color }: { color: string }) => {
 };
 
 export const NetworkLoggerPanel = () => {
-  const { isVisible, entries, mocks, selectedEntry, dispatch } = useNetworkLogger();
+  const { isVisible, entries, consoleEntries, consoleCaptureEnabled, mocks, selectedEntry, dispatch } = useNetworkLogger();
   const theme = useTheme();
 
   const [activeTab, setActiveTab] = useState<Tab>('logs');
@@ -89,11 +91,23 @@ export const NetworkLoggerPanel = () => {
   const hasActiveUserMocks = mocks.some((m) => m.source !== 'preset' && m.enabled);
   const hasActivePresets = mocks.some((m) => m.source === 'preset' && m.enabled);
 
+  useEffect(() => {
+    if (!consoleCaptureEnabled && activeTab === 'console') {
+      setActiveTab('logs');
+    }
+  }, [activeTab, consoleCaptureEnabled]);
+
   const handleClose = () => dispatch({ type: 'SET_VISIBLE', payload: false });
 
   const handleClear = () => {
-    dispatch({ type: 'CLEAR_ENTRIES' });
-    dispatch({ type: 'SET_SELECTED_ENTRY', payload: null });
+    if (activeTab === 'logs') {
+      dispatch({ type: 'CLEAR_ENTRIES' });
+      dispatch({ type: 'SET_SELECTED_ENTRY', payload: null });
+      return;
+    }
+    if (activeTab === 'console') {
+      dispatch({ type: 'CLEAR_CONSOLE_ENTRIES' });
+    }
   };
 
   const handleSelectEntry = (entry: NetworkLogEntry) =>
@@ -150,25 +164,27 @@ export const NetworkLoggerPanel = () => {
     }
     return (
       <>
-        <TextInput
-          style={[
-            styles.searchInput,
-            {
-              color: theme.text,
-              borderColor: theme.border,
-              backgroundColor: theme.surface,
-            },
-          ]}
-          value={filter}
-          onChangeText={setFilter}
-          placeholder="Filter by URL or method…"
-          placeholderTextColor={theme.textSecondary}
-          autoCapitalize="none"
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-          returnKeyType="search"
-          accessibilityLabel="Filter log entries"
-        />
+        {entries.length > 0 && (
+          <TextInput
+            style={[
+              styles.searchInput,
+              {
+                color: theme.text,
+                borderColor: theme.border,
+                backgroundColor: theme.surface,
+              },
+            ]}
+            value={filter}
+            onChangeText={setFilter}
+            placeholder="Filter by URL or method…"
+            placeholderTextColor={theme.textSecondary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+            returnKeyType="search"
+            accessibilityLabel="Filter log entries"
+          />
+        )}
         {filteredEntries.length === 0 ? (
           <View style={styles.empty}>
             <Text style={[styles.emptyIcon]}>📡</Text>
@@ -202,9 +218,13 @@ export const NetworkLoggerPanel = () => {
   };
 
   const isLogsTab = activeTab === 'logs';
+  const isConsoleTab = activeTab === 'console' && consoleCaptureEnabled;
   const isAddMockTab = activeTab === 'add-mock';
   const isMyMocksTab = activeTab === 'my-mocks';
   const isPresetsTab = activeTab === 'presets';
+  const canClearActiveTab =
+    (isLogsTab && entries.length > 0) ||
+    (isConsoleTab && consoleEntries.length > 0);
 
   const userMockCount = mocks.filter((m) => m.source !== 'preset').length;
   const presetCount = mocks.filter((m) => m.source === 'preset').length;
@@ -220,14 +240,16 @@ export const NetworkLoggerPanel = () => {
         <View style={[styles.header, { borderBottomColor: theme.border }]}>
           <Text style={[styles.title, { color: theme.text }]}>Dev Tool</Text>
           <View style={styles.headerActions}>
-            <TouchableOpacity
-              onPress={handleClear}
-              style={styles.headerButton}
-              accessibilityRole="button"
-              accessibilityLabel="Clear all logs"
-            >
-              <Text style={[styles.clearText, { color: theme.danger }]}>Clear</Text>
-            </TouchableOpacity>
+            {canClearActiveTab && (
+              <TouchableOpacity
+                onPress={handleClear}
+                style={styles.headerButton}
+                accessibilityRole="button"
+                accessibilityLabel={isConsoleTab ? 'Clear all console entries' : 'Clear all logs'}
+              >
+                <Text style={[styles.clearText, { color: theme.danger }]}>Clear</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={handleClose}
               style={styles.headerButton}
@@ -239,7 +261,12 @@ export const NetworkLoggerPanel = () => {
           </View>
         </View>
 
-        <View style={[styles.tabBar, { borderBottomColor: theme.border }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[styles.tabBar, { borderBottomColor: theme.border }]}
+          contentContainerStyle={styles.tabBarContent}
+        >
           {/* ── Logs ── */}
           <TouchableOpacity
             style={[
@@ -325,10 +352,32 @@ export const NetworkLoggerPanel = () => {
               {hasActivePresets && <PingDot color={theme.success} />}
             </View>
           </TouchableOpacity>
-        </View>
+
+            {consoleCaptureEnabled && (
+              <TouchableOpacity
+                style={[
+                  styles.tab,
+                  { borderBottomColor: isConsoleTab ? theme.primary : 'transparent' },
+                ]}
+                onPress={() => setActiveTab('console')}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isConsoleTab }}
+              >
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    { color: isConsoleTab ? theme.primary : theme.textSecondary },
+                  ]}
+                >
+                  {`Console (${consoleEntries.length})`}
+                </Text>
+              </TouchableOpacity>
+            )}
+        </ScrollView>
 
         <View style={styles.content}>
           {activeTab === 'logs' && renderLogs()}
+          {activeTab === 'console' && consoleCaptureEnabled && <ConsoleListView />}
           {activeTab === 'add-mock' && (
             <MockEditor
               prefill={editorPrefill}
@@ -384,12 +433,19 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   tabBar: {
-    flexDirection: 'row',
+    flexGrow: 0,
+    flexShrink: 0,
+    maxHeight: 48,
     borderBottomWidth: 1,
   },
+  tabBarContent: {
+    paddingHorizontal: 4,
+    alignItems: 'center',
+  },
   tab: {
-    flex: 1,
+    minWidth: 92,
     paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
     borderBottomWidth: 2,
   },
@@ -424,7 +480,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     marginHorizontal: 12,
-    marginTop: 10,
+    marginTop: 4,
     marginBottom: 4,
     height: 36,
     borderWidth: 1,
@@ -454,6 +510,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 12,
+    paddingTop: 8,
     paddingBottom: 32,
   },
 });

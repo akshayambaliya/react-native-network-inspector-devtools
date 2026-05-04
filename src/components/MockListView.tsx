@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -23,17 +24,30 @@ interface Props {
 export const MockListView = ({ source = 'user', onEditMock }: Props) => {
   const { mocks, dispatch } = useNetworkLogger();
   const theme = useTheme();
+  const [filter, setFilter] = useState('');
 
   // Filter to only the relevant source for this view.
-  const filtered = mocks.filter((m) =>
+  const sourceMocks = mocks.filter((m) =>
     source === 'preset' ? m.source === 'preset' : m.source !== 'preset'
   );
+
+  const normalizedFilter = filter.trim().toLowerCase();
+  const filtered = normalizedFilter
+    ? sourceMocks.filter((mock) => {
+        const variantNames = (mock.variants ?? []).map((variant) => variant.name).join(' ');
+        const haystack = `${mock.method} ${mock.urlPattern} ${variantNames}`.toLowerCase();
+        return haystack.includes(normalizedFilter);
+      })
+    : sourceMocks;
 
   // Pinned mocks float to the top; order within each group is preserved.
   const visibleMocks = [
     ...filtered.filter((m) => m.pinned),
     ...filtered.filter((m) => !m.pinned),
   ];
+
+  const allPresetsEnabled =
+    source === 'preset' && sourceMocks.length > 0 && sourceMocks.every((mock) => mock.enabled);
 
   // ID of the currently selected mock. We look it up live from `mocks` so
   // that toggle changes made inside MockDetailView are immediately reflected.
@@ -52,7 +66,7 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
     );
   }
 
-  if (visibleMocks.length === 0) {
+  if (sourceMocks.length === 0) {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyIcon}>{source === 'preset' ? '📦' : '🎭'}</Text>
@@ -236,7 +250,62 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      {visibleMocks.map(renderRow)}
+      {source === 'preset' && sourceMocks.length > 0 && (
+        <View style={styles.controls}>
+          <TextInput
+            style={[
+              styles.searchInput,
+              {
+                color: theme.text,
+                borderColor: theme.border,
+                backgroundColor: theme.surface,
+              },
+            ]}
+            value={filter}
+            onChangeText={setFilter}
+            placeholder="Search by method, URL or variant…"
+            placeholderTextColor={theme.textSecondary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+            returnKeyType="search"
+            accessibilityLabel="Search presets"
+          />
+
+          <View style={[styles.bulkToggleRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.bulkToggleTextWrap}>
+              <Text style={[styles.bulkToggleTitle, { color: theme.text }]}>All Presets</Text>
+              <Text style={[styles.bulkToggleSubtitle, { color: theme.textSecondary }]}>
+                {sourceMocks.length} preset{sourceMocks.length === 1 ? '' : 's'}
+              </Text>
+            </View>
+            <View style={styles.switchWrapper}>
+              <Switch
+                value={allPresetsEnabled}
+                onValueChange={(enabled) =>
+                  dispatch({
+                    type: 'SET_SOURCE_MOCKS_ENABLED',
+                    payload: { source: 'preset', enabled },
+                  })
+                }
+                trackColor={{ false: '#767577', true: theme.primary }}
+                style={styles.switch}
+                accessibilityLabel="Toggle all presets"
+                accessibilityRole="switch"
+              />
+            </View>
+          </View>
+        </View>
+      )}
+
+      {visibleMocks.length === 0 ? (
+        <View style={styles.emptyFiltered}>
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>No preset matches</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Try a different method, URL or variant name.</Text>
+        </View>
+      ) : (
+        visibleMocks.map(renderRow)
+      )}
     </ScrollView>
   );
 };
@@ -245,8 +314,41 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: {
     padding: 12,
+    paddingTop: 8,
     paddingBottom: 32,
     gap: 4,
+  },
+  controls: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  searchInput: {
+    height: 36,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    fontSize: 14,
+  },
+  bulkToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 12,
+  },
+  bulkToggleTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  bulkToggleTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  bulkToggleSubtitle: {
+    fontSize: 11,
   },
   empty: {
     flex: 1,
@@ -254,6 +356,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 32,
     gap: 12,
+  },
+  emptyFiltered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 28,
+    gap: 8,
   },
   emptyIcon: { fontSize: 40 },
   emptyTitle: {

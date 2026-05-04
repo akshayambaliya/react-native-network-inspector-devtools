@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   jsonPlaceholderClient,
   pokeClient,
@@ -21,6 +21,33 @@ export default function App() {
   const [detailParams, setDetailParams] = useState<DetailScreenParams | null>(
     null,
   );
+
+  useEffect(() => {
+    console.log("[Example] Network logger demo mounted", {
+      screen: "Home",
+      presetsLoaded: DEMO_PRESETS.length,
+      clients: ["jsonPlaceholderClient", "pokeClient", "countriesClient"],
+    });
+
+    console.info("[Example] Console capture info sample", {
+      hint: "Open Dev Tool > Console tab to verify automatic capture.",
+      featureFlags: {
+        consoleCapture: true,
+        mocksEnabled: true,
+      },
+    });
+
+    console.warn("[Example] Console capture warning sample", {
+      scenario: "Verification only",
+      note: "This warning is intentionally emitted by the example app.",
+    });
+
+    console.error("[Example] Console capture error sample", {
+      scenario: "Verification only",
+      recoverable: true,
+      note: "This is a synthetic example error entry, not an app failure.",
+    });
+  }, []);
 
   return (
     <NetworkLogger

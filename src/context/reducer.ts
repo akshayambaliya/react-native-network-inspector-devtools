@@ -2,6 +2,7 @@ import type { NetworkLoggerAction, NetworkLoggerState } from '../types';
 
 export const initialState: NetworkLoggerState = {
   entries: [],
+  consoleEntries: [],
   mocks: [],
   isVisible: false,
   selectedEntryId: null,
@@ -26,6 +27,12 @@ export function reducer(
       };
     case 'CLEAR_ENTRIES':
       return { ...state, entries: [], selectedEntryId: null };
+    case 'ADD_CONSOLE_ENTRY': {
+      const consoleEntries = [action.payload, ...state.consoleEntries];
+      return { ...state, consoleEntries: consoleEntries.slice(0, state.maxEntries) };
+    }
+    case 'CLEAR_CONSOLE_ENTRIES':
+      return { ...state, consoleEntries: [] };
     case 'SET_VISIBLE':
       return { ...state, isVisible: action.payload };
     case 'SET_SELECTED_ENTRY':
@@ -98,6 +105,17 @@ export function reducer(
         ...state,
         mocks: state.mocks.map((m) =>
           m.id === action.payload ? { ...m, enabled: !m.enabled } : m
+        ),
+      };
+    case 'SET_SOURCE_MOCKS_ENABLED':
+      return {
+        ...state,
+        mocks: state.mocks.map((m) =>
+          (action.payload.source === 'preset'
+            ? m.source === 'preset'
+            : m.source !== 'preset')
+            ? { ...m, enabled: action.payload.enabled }
+            : m
         ),
       };
     case 'TOGGLE_MOCK_PIN':
