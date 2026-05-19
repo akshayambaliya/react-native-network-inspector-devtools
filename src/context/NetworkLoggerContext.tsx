@@ -17,6 +17,7 @@ import type {
   NetworkLogEntry,
   NetworkLoggerAction,
   NetworkMock,
+  BlacklistRule,
 } from "../types";
 import { initialState, reducer } from "./reducer";
 import { subscribeToConsoleEntries } from '../utils/consoleInterceptor';
@@ -168,6 +169,13 @@ export interface NetworkLoggerContextValue {
   consoleCaptureEnabled: boolean;
   /** Mocks that are currently enabled and will intercept matching requests. */
   activeMocks: NetworkMock[];
+  /**
+   * Developer-configured rules describing requests the logger must ignore.
+   * Provided via the `blacklist` prop and re-exposed here so any consumer
+   * (interceptor components, custom integrations) can read the live list
+   * without re-importing the original source.
+   */
+  blacklist: BlacklistRule[];
   isVisible: boolean;
   maxEntries: number;
   /** The currently selected log entry, or `null` if none selected. */
@@ -215,6 +223,30 @@ export interface NetworkLoggerProviderProps {
    * ```
    */
   initialMocks?: MockPreset[];
+  /**
+   * Developer-configured list of URL patterns the logger must ignore.
+   *
+   * Matching requests are **not** added to the panel and **no** mock is
+   * applied to them — they reach the network exactly as issued. Use this for:
+   *   - noisy endpoints (analytics, polling, heartbeat, asset fetches),
+   *   - sensitive endpoints (auth tokens, payments) that must never appear in
+   *     an in-app inspector even on internal builds.
+   *
+   * The list is a developer/source-controlled config and is **not** persisted
+   * to AsyncStorage — it always reflects the value passed in props.
+   *
+   * @example
+   * ```tsx
+   * <NetworkLogger
+   *   blacklist={[
+   *     { urlPattern: '/analytics/' },
+   *     { urlPattern: '/auth/token', matchType: 'contains', method: 'POST' },
+   *     { urlPattern: '\\.(png|jpg|gif)(\\?|$)', matchType: 'regex' },
+   *   ]}
+   * >
+   * ```
+   */
+  blacklist?: BlacklistRule[];
 }
 
 export const NetworkLoggerProvider = ({
@@ -222,10 +254,30 @@ export const NetworkLoggerProvider = ({
   maxEntries = 200,
   enableConsoleCapture = true,
   initialMocks,
+  blacklist,
 }: NetworkLoggerProviderProps) => {
   const initialPresetMocks = useMemo(
     () => presetsToMocks(initialMocks ?? []),
     [initialMocks],
+  );
+
+  // Normalize the blacklist once per identity change. The interceptors read
+  // this through a ref, so reference stability matters less than predictable
+  // shape — we always hand them an array (never `undefined`) and we drop any
+  // entry that lacks a usable string `urlPattern` (guards against malformed
+  // input from untyped JS consumers).
+  const normalizedBlacklist = useMemo<BlacklistRule[]>(
+    () =>
+      Array.isArray(blacklist)
+        ? blacklist.filter(
+            (r): r is BlacklistRule =>
+              !!r &&
+              typeof r === 'object' &&
+              typeof (r as BlacklistRule).urlPattern === 'string' &&
+              (r as BlacklistRule).urlPattern.length > 0,
+          )
+        : [],
+    [blacklist],
   );
 
   // Lazy initializer: presetsToMocks() runs only once on mount, not on every render.
@@ -317,13 +369,14 @@ export const NetworkLoggerProvider = ({
       mocks: state.mocks,
       consoleCaptureEnabled: enableConsoleCapture,
       activeMocks,
+      blacklist: normalizedBlacklist,
       isVisible: state.isVisible,
       maxEntries: state.maxEntries,
       selectedEntry,
       persistMocks,
       dispatch,
     };
-  }, [state, dispatch, persistMocks, enableConsoleCapture]);
+  }, [state, dispatch, persistMocks, enableConsoleCapture, normalizedBlacklist]);
 
   return (
     <NetworkLoggerContext.Provider value={value}>

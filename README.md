@@ -72,14 +72,16 @@ Tap the floating button inside your app to inspect every outgoing axios **or fet
   - [Multiple Axios Instances](#1-multiple-axios-instances)
   - [Fetch Support (Enabled by Default)](#2-fetch-support-enabled-by-default)
   - [Pre-loading Mock Rules for QA Builds](#3-pre-loading-mock-rules-for-qa-builds)
-  - [Always-on QA Build with Increased Log Buffer](#4-always-on-qa-build-with-increased-log-buffer)
-  - [Manual Setup for Full Rendering Control](#5-manual-setup-for-full-rendering-control)
+  - [URL Blacklist (Skip Noisy or Sensitive Endpoints)](#4-url-blacklist-skip-noisy-or-sensitive-endpoints)
+  - [Always-on QA Build with Increased Log Buffer](#5-always-on-qa-build-with-increased-log-buffer)
+  - [Manual Setup for Full Rendering Control](#6-manual-setup-for-full-rendering-control)
 - [URL Match Types](#url-match-types)
 - [Configuration](#configuration)
   - [\<NetworkLogger\> Props](#networklogger-props)
   - [\<NetworkLoggerProvider\> Props](#networkloggerprovider-props)
   - [\<NetworkLoggerFAB\> Props](#networkloggerfab-props)
   - [MockPreset Options](#mockpreset-options)
+  - [BlacklistRule Options](#blacklistrule-options)
 - [API Reference](#api-reference)
 - [Contributing](#contributing)
 - [License](#license)
@@ -98,6 +100,7 @@ Tap the floating button inside your app to inspect every outgoing axios **or fet
 | **Response mocking**           | Force any endpoint to return a custom response without touching the server.                                                                                                                                                      |
 | **Mock variants**              | Each rule carries multiple response scenarios; QA switches between them instantly at runtime without restarting the app.                                                                                                         |
 | **Developer preset mocks**     | Pass `initialMocks` to pre-load rules at startup they appear with a **PRESET** badge in the panel.                                                                                                                               |
+| **URL blacklist**              | Pass `blacklist` to silently skip noisy or sensitive endpoints (analytics, auth, asset downloads). Matching requests are never logged and never mocked — they pass straight through to the real network. Supports `contains`, `exact`, and `regex` matching, with an optional per-method filter. |
 | **Smart match priority**       | `exact` beats `regex` beats `contains`; longer patterns beat shorter within the same type; user mocks always beat presets.                                                                                                       |
 | **Correct 4xx/5xx behaviour**  | Mocked error responses throw an `AxiosError` (axios) or return a `Response` with the correct `status` so `res.ok === false` (fetch), so your `catch` and `if (!res.ok)` branches fire exactly as they would with a real server. |
 | **One-tap mock prefill**       | Tap any log row → **Mock** to pre-fill the editor instantly.                                                                                                                                                                     |
@@ -325,7 +328,57 @@ export default function App() {
 
 ---
 
-### 4. Always-on QA Build with Increased Log Buffer
+### 4. URL Blacklist (Skip Noisy or Sensitive Endpoints)
+
+Pass a `blacklist` array to silently exclude requests from the panel. Matching requests:
+
+- are **never** added to the Logs tab,
+- are **never** mocked — even if a matching preset/user mock is enabled,
+- reach the network exactly as the consumer issued them.
+
+Use it for noisy endpoints (analytics beacons, polling health checks, image / asset downloads) and for sensitive endpoints (auth tokens, payments) that must not surface in an in-app inspector — even on internal builds.
+
+```tsx
+import { NetworkLogger } from "react-native-network-inspector-devtools";
+import type { BlacklistRule } from "react-native-network-inspector-devtools";
+
+const blacklist: BlacklistRule[] = [
+  // CONTAINS (default) — case-insensitive substring match on the URL.
+  // Hides every analytics beacon regardless of method.
+  { urlPattern: "/analytics/" },
+
+  // EXACT + METHOD — block only POST on this specific URL.
+  // GET/PUT on the same URL still appear in the panel.
+  {
+    urlPattern: "https://api.example.com/v1/auth/token",
+    matchType: "exact",
+    method: "POST",
+  },
+
+  // REGEX — hide static image assets (any extension, with or without query).
+  { urlPattern: "\\.(png|jpe?g|gif|webp)(\\?|$)", matchType: "regex" },
+];
+
+export default function App() {
+  return (
+    <NetworkLogger
+      enabled={__DEV__}
+      instance={apiClient}
+      blacklist={blacklist}
+    >
+      <RootNavigator />
+    </NetworkLogger>
+  );
+}
+```
+
+> **Blacklist always beats mocks.** If a URL is matched by both the blacklist and a mock rule (preset or user-added), the blacklist wins — the original network request is sent and no log row is created. This is intentional and lets you guarantee certain endpoints never participate in the inspector lifecycle, even when QA enables "All Presets".
+
+> **The blacklist is developer config, not runtime state.** It is read from the `blacklist` prop and never persisted to AsyncStorage. Change the prop value and the next request honours the new list immediately (no remount needed).
+
+---
+
+### 5. Always-on QA Build with Increased Log Buffer
 
 Keep the logger active in internal QA builds without enabling it in production.
 
@@ -350,7 +403,7 @@ export default function App() {
 
 ---
 
-### 5. Manual Setup for Full Rendering Control
+### 6. Manual Setup for Full Rendering Control
 
 Use the individual primitives when you need the panel in a specific position, inside a portal, or wrapped in a feature flag gate. Add `<NetworkLoggerFetchInterceptor />` when you want fetch coverage in the manual setup.
 
@@ -414,6 +467,7 @@ All-in-one wrapper component. Recommended for most use cases.
 | `instances`    | `AxiosInstance[]`                  | —                           | Multiple axios instances. Can be combined with `instance`.                          |
 | `enableFetch`  | `boolean`                          | `true`                      | Intercept the global `fetch` (and any fetch calls made by third-party libraries). Pass `false` to opt out and intercept axios only. |
 | `initialMocks` | `MockPreset[]`                     | —                           | Pre-load mock rules at startup. Appear in the **Presets** tab with a badge. Mocks apply to both axios and fetch. |
+| `blacklist`    | `BlacklistRule[]`                  | —                           | URL patterns to silently skip. Matching requests are not logged and not mocked. See [BlacklistRule Options](#blacklistrule-options). |
 | `enableConsoleCapture` | `boolean`                 | `true`                      | Capture JS console output and show the **Console** tab. Set `false` to disable listener setup and hide the tab. |
 | `fabPosition`  | `{ bottom?, top?, left?, right? }` | `{ bottom: 90, right: 16 }` | Starting position of the floating button. Draggable at runtime.                     |
 | `maxEntries`   | `number`                           | `200`                       | Maximum log entries to retain. Oldest are dropped when the cap is reached.          |
@@ -430,6 +484,7 @@ Context provider for the manual setup pattern.
 | Prop                   | Type           | Default | Description                                                                 |
 | ---------------------- | -------------- | ------- | --------------------------------------------------------------------------- |
 | `initialMocks`         | `MockPreset[]` | —       | Pre-load mock rules at startup.                                             |
+| `blacklist`            | `BlacklistRule[]` | —    | URL patterns to silently skip. Matching requests are not logged and not mocked. See [BlacklistRule Options](#blacklistrule-options). |
 | `maxEntries`           | `number`       | `200`   | Maximum log entries to retain (applies to network + console entries).       |
 | `enableConsoleCapture` | `boolean`      | `true`  | Capture JS console output and expose the Console tab. Set `false` to disable. |
 | `children`             | `ReactNode`    | —       | Your app tree.                                                              |
@@ -462,6 +517,33 @@ The floating 🌐 button that opens the panel.
 | `enabled`         | `boolean`                | —                     | Whether the mock starts active. Defaults to `true`.                           |
 | `variants`        | `MockPresetVariant[]`    | —                     | Additional named response scenarios.                                          |
 | `defaultVariant`  | `string`                 | —                     | Name of the variant to activate on first load. Defaults to the first variant. |
+
+---
+
+### `BlacklistRule` Options
+
+A single rule passed inside the `blacklist` array. Matching requests are skipped before logging and before mock matching — the original request reaches the network unchanged.
+
+| Field        | Type                              | Required | Description                                                                                              |
+| ------------ | --------------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `urlPattern` | `string`                          | ✅       | The pattern to match against outgoing request URLs.                                                       |
+| `matchType`  | `'contains' \| 'exact' \| 'regex'` | —        | How `urlPattern` is interpreted. Defaults to `'contains'`. Shares the same vocabulary as `MockUrlMatchType`. |
+| `method`     | `HttpMethod \| 'ALL'`             | —        | Restrict the rule to a single HTTP method (e.g. `'POST'`). Defaults to `'ALL'` — matches any method.     |
+
+**Examples:**
+
+```tsx
+// Drop every URL containing "/analytics/", any HTTP method.
+{ urlPattern: "/analytics/" }
+
+// Drop only POST requests to one exact URL.
+{ urlPattern: "https://api.example.com/v1/auth/token", matchType: "exact", method: "POST" }
+
+// Drop any static image asset (regex).
+{ urlPattern: "\\.(png|jpe?g|gif|webp)(\\?|$)", matchType: "regex" }
+```
+
+> **Safety:** an invalid regex never throws — the rule simply does not match. Malformed entries (missing `urlPattern`, wrong types from untyped JS callers) are filtered out at the provider boundary and never reach the interceptors.
 
 ---
 

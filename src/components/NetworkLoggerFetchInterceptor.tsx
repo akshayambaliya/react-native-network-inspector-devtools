@@ -1,7 +1,7 @@
 import { useEffect, useRef, type Dispatch } from 'react';
 
 import { useNetworkLogger } from '../context/NetworkLoggerContext';
-import type { NetworkLoggerAction, NetworkMock } from '../types';
+import type { NetworkLoggerAction, NetworkMock, BlacklistRule } from '../types';
 import { installFetchInterceptor } from '../utils/fetchInterceptor';
 
 export interface NetworkLoggerFetchInterceptorProps {
@@ -25,10 +25,11 @@ export interface NetworkLoggerFetchInterceptorProps {
 export const NetworkLoggerFetchInterceptor = ({
   target,
 }: NetworkLoggerFetchInterceptorProps = {}) => {
-  const { dispatch, activeMocks } = useNetworkLogger();
+  const { dispatch, activeMocks, blacklist } = useNetworkLogger();
 
   const dispatchRef = useRef<Dispatch<NetworkLoggerAction>>(dispatch);
   const activeMocksRef = useRef<NetworkMock[]>(activeMocks);
+  const blacklistRef = useRef<BlacklistRule[]>(blacklist);
   const targetRef = useRef<{ fetch: typeof fetch } | undefined>(target);
 
   useEffect(() => {
@@ -40,12 +41,17 @@ export const NetworkLoggerFetchInterceptor = ({
   }, [activeMocks]);
 
   useEffect(() => {
+    blacklistRef.current = blacklist;
+  }, [blacklist]);
+
+  useEffect(() => {
     targetRef.current = target;
   }, [target]);
 
   useEffect(() => {
     return installFetchInterceptor(dispatchRef, activeMocksRef, {
       target: targetRef.current,
+      blacklistRef,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- install once on mount only
   }, []);

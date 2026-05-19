@@ -11,8 +11,10 @@ import type {
   NetworkLogEntry,
   NetworkLoggerAction,
   NetworkMock,
+  BlacklistRule,
 } from "../types";
 import { pickMock } from "./mockMatcher";
+import { isBlacklisted } from "./blacklistMatcher";
 
 /** Monotonic counter — no collision risk, no custom header injected into real requests. */
 let _reqCounter = 0;
@@ -48,12 +50,23 @@ export const installInterceptors = (
   axiosInstance: AxiosInstance,
   dispatchRef: { current: Dispatch<NetworkLoggerAction> },
   activeMocksRef: { current: NetworkMock[] },
+  blacklistRef?: { current: BlacklistRule[] },
 ): (() => void) => {
   /** Correlates a config object → { id, startTime } without injecting custom headers. */
   const reqMeta = new Map<object, { id: string; startTime: number }>();
 
   const reqId = axiosInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+      const requestUrl = resolveUrl(config);
+      const requestMethod = (config.method ?? "GET").toUpperCase();
+
+      // Blacklist short-circuit — drop before logging or mock matching.
+      // The response interceptor's reqMeta lookup will miss naturally,
+      // so this single check is sufficient to make the request invisible.
+      if (isBlacklisted(blacklistRef?.current, requestUrl, requestMethod)) {
+        return config;
+      }
+
       const id = nextId();
       const startTime = Date.now();
 
@@ -61,8 +74,8 @@ export const installInterceptors = (
 
       const entry: NetworkLogEntry = {
         id,
-        url: resolveUrl(config),
-        method: (config.method ?? "GET").toUpperCase(),
+        url: requestUrl,
+        method: requestMethod,
         requestHeaders: headersToRecord(config.headers),
         requestBody: safeStringify(config.data),
         startTime,
@@ -71,9 +84,6 @@ export const installInterceptors = (
       };
 
       dispatchRef.current({ type: "ADD_ENTRY", payload: entry });
-
-      const requestUrl = resolveUrl(config);
-      const requestMethod = (config.method ?? "").toUpperCase();
 
       // Split active mocks by source so each tier is searched independently.
       // Within each tier the highest-specificity match wins (not first-array-order).

@@ -4,8 +4,10 @@ import type {
   NetworkLogEntry,
   NetworkLoggerAction,
   NetworkMock,
+  BlacklistRule,
 } from '../types';
 import { pickMock } from './mockMatcher';
+import { isBlacklisted } from './blacklistMatcher';
 
 /** Monotonic counter — prefixed so fetch IDs never collide with axios IDs. */
 let _reqCounter = 0;
@@ -103,6 +105,13 @@ export interface InstallFetchInterceptorOptions {
    * holder (rare in React Native).
    */
   target?: { fetch: typeof fetch };
+  /**
+   * Live reference to the developer-configured blacklist. Requests whose URL
+   * (and optional method) match any rule are passed straight through to
+   * `originalFetch` without being logged or mocked. Optional — when omitted,
+   * no requests are filtered out.
+   */
+  blacklistRef?: { current: BlacklistRule[] };
 }
 
 /**
@@ -111,6 +120,7 @@ export interface InstallFetchInterceptorOptions {
  * cleanup function that restores the original fetch.
  *
  * Behaviour matches the axios interceptor:
+ *  - Blacklisted URLs are dropped before logging or mocking.
  *  - Mocks use the same priority rules (exact > regex > contains; longer wins;
  *    user mocks beat presets).
  *  - Non-2xx mocked statuses produce a real `Response` object — callers' own
@@ -122,6 +132,7 @@ export const installFetchInterceptor = (
   activeMocksRef: { current: NetworkMock[] },
   options: InstallFetchInterceptorOptions = {},
 ): (() => void) => {
+  const { blacklistRef } = options;
   const scope = (options.target ?? (globalThis as unknown)) as {
     fetch?: typeof fetch & { [PATCHED_MARKER]?: boolean };
   };
@@ -152,18 +163,46 @@ export const installFetchInterceptor = (
   const originalFetch = scope.fetch.bind(scope);
 
   const patched: typeof fetch = async (input, init) => {
+    // ── Step 1: Cheap URL + method extraction (no body reads) ──
+    // We need both values up front so the blacklist check can run BEFORE any
+    // body cloning / FormData inspection — that work would be wasted for a
+    // blacklisted request (and can be expensive for large uploads).
+    let url: string;
+    let method: string;
+    try {
+      if (typeof Request !== 'undefined' && input instanceof Request) {
+        url = input.url;
+        method = (init?.method ?? input.method ?? 'GET').toUpperCase();
+      } else {
+        url =
+          typeof input === 'string'
+            ? input
+            : typeof URL !== 'undefined' && input instanceof URL
+              ? input.toString()
+              : String(input);
+        method = (init?.method ?? 'GET').toUpperCase();
+      }
+    } catch {
+      url = typeof input === 'string' ? input : String(input);
+      method = (init?.method ?? 'GET').toUpperCase();
+    }
+
+    // ── Step 2: Blacklist short-circuit ──
+    // Pass straight through with no logging and no mocking, even if a mock
+    // rule would have matched. This is the contract the consumer relies on.
+    if (isBlacklisted(blacklistRef?.current, url, method)) {
+      return originalFetch(input as RequestInfo, init);
+    }
+
+    // ── Step 3: Full request capture (only reached for non-blacklisted URLs) ──
     const id = nextId();
     const startTime = Date.now();
 
-    let url: string;
-    let method: string;
     let requestHeaders: Record<string, string>;
     let requestBody: string | undefined;
 
     try {
       if (typeof Request !== 'undefined' && input instanceof Request) {
-        url = input.url;
-        method = (init?.method ?? input.method ?? 'GET').toUpperCase();
         // init.headers (if supplied) overrides the Request's headers when fetch runs.
         requestHeaders = init?.headers
           ? requestHeadersToRecord(init.headers as AnyHeadersInit)
@@ -179,21 +218,12 @@ export const installFetchInterceptor = (
           }
         }
       } else {
-        url =
-          typeof input === 'string'
-            ? input
-            : typeof URL !== 'undefined' && input instanceof URL
-              ? input.toString()
-              : String(input);
-        method = (init?.method ?? 'GET').toUpperCase();
         requestHeaders = requestHeadersToRecord(
           init?.headers as AnyHeadersInit,
         );
         requestBody = await safeRequestBodyToString(init?.body);
       }
     } catch {
-      url = typeof input === 'string' ? input : String(input);
-      method = (init?.method ?? 'GET').toUpperCase();
       requestHeaders = {};
       requestBody = undefined;
     }

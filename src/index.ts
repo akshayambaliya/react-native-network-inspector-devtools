@@ -24,6 +24,7 @@ export { ConsoleDetailView } from './components/ConsoleDetailView';
 export { installInterceptors } from './utils/interceptor';
 export { installFetchInterceptor } from './utils/fetchInterceptor';
 export type { InstallFetchInterceptorOptions } from './utils/fetchInterceptor';
+export { isBlacklisted, matchesBlacklistRule } from './utils/blacklistMatcher';
 
 // Theme (for consumers who want to match the logger's color palette)
 export { DARK, LIGHT, METHOD_COLORS, useTheme } from './theme';
@@ -31,6 +32,8 @@ export type { Theme } from './theme';
 
 // Types
 export type {
+  BlacklistMatchType,
+  BlacklistRule,
   ConsoleEntry,
   ConsoleLogLevel,
   HttpMethod,

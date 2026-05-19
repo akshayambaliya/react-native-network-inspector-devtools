@@ -84,3 +84,14 @@ export const fetchNetworkError = async () => {
   const res = await fetch('https://this-host-does-not-exist.invalid/ping');
   return res.json();
 };
+
+// ─── Blacklist demo (fetch) ─────────────────────────────────────────────────
+// Matches the regex blacklist rule `\.(png|jpe?g|gif|webp)(\?|$)` configured
+// in App.tsx — the fetch still runs but no row appears in the panel.
+export const fetchImageAssetBlacklisted = async () => {
+  const res = await fetch(
+    'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png',
+  );
+  // We only need to demonstrate the network call — no need to read the bytes.
+  return { ok: res.ok, status: res.status };
+};

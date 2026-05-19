@@ -14,6 +14,54 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 
  */
 export type MockUrlMatchType = 'contains' | 'exact' | 'regex';
 
+/**
+ * Controls how a `BlacklistRule.urlPattern` is matched against the request URL.
+ * Shares the same vocabulary as `MockUrlMatchType` so consumers learn a single
+ * matching model across mocks and the blacklist.
+ */
+export type BlacklistMatchType = 'contains' | 'exact' | 'regex';
+
+/**
+ * A developer-configured rule describing requests that the logger must ignore.
+ *
+ * When an outgoing request matches **any** rule:
+ *   - it is **not** added to the panel,
+ *   - **no** mock is applied to it (even if a mock rule would have matched),
+ *   - the original request reaches the network exactly as the consumer issued it.
+ *
+ * Rules are intended for noisy endpoints (analytics beacons, polling health
+ * checks, asset downloads) and for sensitive endpoints (auth, payments) that
+ * must never be visible inside the in-app inspector.
+ *
+ * @example
+ * ```tsx
+ * <NetworkLogger
+ *   enabled={__DEV__}
+ *   instance={apiClient}
+ *   blacklist={[
+ *     { urlPattern: '/analytics/' },
+ *     { urlPattern: 'https://api.example.com/auth/login', matchType: 'exact', method: 'POST' },
+ *     { urlPattern: '\\.(png|jpg|gif|webp)(\\?|$)', matchType: 'regex' },
+ *   ]}
+ * >
+ * ```
+ */
+export interface BlacklistRule {
+  /** URL pattern to match. How it is interpreted depends on `matchType`. */
+  urlPattern: string;
+  /**
+   * How `urlPattern` is matched against the request URL.
+   * Defaults to `'contains'`.
+   */
+  matchType?: BlacklistMatchType;
+  /**
+   * Restrict the rule to a single HTTP method. Defaults to `'ALL'` — the rule
+   * applies regardless of method, which is the common case for blocking an
+   * endpoint by URL alone.
+   */
+  method?: HttpMethod | 'ALL';
+}
+
 export interface NetworkLogEntry {
   id: string;
   url: string;
