@@ -8,6 +8,8 @@ export type { NetworkLoggerProps } from './components/NetworkLogger';
 
 // Components
 export { NetworkLoggerAxiosInterceptor } from './components/NetworkLoggerAxiosInterceptor';
+export { NetworkLoggerFetchInterceptor } from './components/NetworkLoggerFetchInterceptor';
+export type { NetworkLoggerFetchInterceptorProps } from './components/NetworkLoggerFetchInterceptor';
 export { NetworkLoggerFAB } from './components/NetworkLoggerFAB';
 export { NetworkLoggerPanel } from './components/NetworkLoggerPanel';
 export { LogDetailView } from './components/LogDetailView';
@@ -20,6 +22,8 @@ export { ConsoleDetailView } from './components/ConsoleDetailView';
 
 // Low-level API (for manual interceptor installation)
 export { installInterceptors } from './utils/interceptor';
+export { installFetchInterceptor } from './utils/fetchInterceptor';
+export type { InstallFetchInterceptorOptions } from './utils/fetchInterceptor';
 
 // Theme (for consumers who want to match the logger's color palette)
 export { DARK, LIGHT, METHOD_COLORS, useTheme } from './theme';

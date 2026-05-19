@@ -12,6 +12,7 @@ import type {
   NetworkLoggerAction,
   NetworkMock,
 } from "../types";
+import { pickMock } from "./mockMatcher";
 
 /** Monotonic counter — no collision risk, no custom header injected into real requests. */
 let _reqCounter = 0;
@@ -41,67 +42,6 @@ const resolveUrl = (config: InternalAxiosRequestConfig): string => {
   const path = config.url ?? "";
   if (!base || path.startsWith("http")) return path;
   return `${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
-};
-
-/**
- * Returns a **specificity score** when `url` matches `mock`, or `null` when it does not.
- *
- * Score = (matchTypeWeight × 1_000_000) + urlPattern.length
- *
- * Match-type weights:
- *   `exact`    → 3  — always beats regex and contains
- *   `regex`    → 2  — always beats contains
- *   `contains` → 1  — broadest, least specific
- *
- * Within the same match type, a longer pattern has a higher score because it
- * constrains the URL more tightly (e.g. `/payments/[^/]+/execution` is more
- * specific than `/payments`).
- *
- * This prevents a short `contains` pattern such as `/payments` from shadowing a
- * longer regex such as `/payments/[^/]+/execution` that is clearly a better fit.
- */
-const urlMatchScore = (url: string, mock: NetworkMock): number | null => {
-  const pattern = mock.urlPattern ?? "";
-  switch (mock.matchType) {
-    case "exact":
-      if (url.toLowerCase() !== pattern.toLowerCase()) return null;
-      return 3_000_000 + pattern.length;
-    case "regex": {
-      try {
-        if (!new RegExp(pattern).test(url)) return null;
-        return 2_000_000 + pattern.length;
-      } catch {
-        // Invalid regex — treat as no match rather than crashing.
-        return null;
-      }
-    }
-    case "contains":
-    default:
-      if (!url.toLowerCase().includes(pattern.toLowerCase())) return null;
-      return 1_000_000 + pattern.length;
-  }
-};
-
-/**
- * Among `candidates` that are enabled and match `url`+`method`, returns the one
- * with the highest specificity score. Ties are broken by array order (first wins).
- */
-const findBestMock = (
-  candidates: NetworkMock[],
-  url: string,
-  method: string,
-): NetworkMock | undefined => {
-  let best: NetworkMock | undefined;
-  let bestScore = -1;
-  for (const mock of candidates) {
-    if ((mock.method ?? '').toUpperCase() !== method) continue;
-    const score = urlMatchScore(url, mock);
-    if (score !== null && score > bestScore) {
-      bestScore = score;
-      best = mock;
-    }
-  }
-  return best;
 };
 
 export const installInterceptors = (
@@ -138,15 +78,11 @@ export const installInterceptors = (
       // Split active mocks by source so each tier is searched independently.
       // Within each tier the highest-specificity match wins (not first-array-order).
       // User mocks are tried first; presets serve as fallback.
-      const userMocks = activeMocksRef.current.filter(
-        (m) => m.source !== "preset",
+      const matchedMock = pickMock(
+        activeMocksRef.current,
+        requestUrl,
+        requestMethod,
       );
-      const presetMocks = activeMocksRef.current.filter(
-        (m) => m.source === "preset",
-      );
-      const matchedMock =
-        findBestMock(userMocks, requestUrl, requestMethod) ??
-        findBestMock(presetMocks, requestUrl, requestMethod);
 
       if (matchedMock) {
         dispatchRef.current({

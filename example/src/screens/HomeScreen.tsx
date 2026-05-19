@@ -27,6 +27,15 @@ import {
   searchCountry,
   updatePost,
 } from '../api/endpoints';
+import {
+  fetchCreateProduct,
+  fetchFormEncoded,
+  fetchNetworkError,
+  fetchNotFound,
+  fetchProductById,
+  fetchProducts,
+  fetchViaRequestObject,
+} from '../api/fetchEndpoints';
 import type { DetailScreenParams, DetailScreenType } from './DetailsScreen';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -349,6 +358,59 @@ export const HomeScreen = ({ onNavigate }: { onNavigate?: (params: DetailScreenP
     },
   ];
 
+  // ─── Fetch (global fetch interception) ──────────────────────────────────
+  const fetchButtons: ButtonItem[] = [
+    {
+      id: 'fetch-products',
+      label: 'Fetch Products List',
+      method: 'GET',
+      description: 'fetch() · dummyjson.com/products — mock available',
+      action: fetchProducts,
+    },
+    {
+      id: 'fetch-product-1',
+      label: 'Fetch Product #1',
+      method: 'GET',
+      description: 'fetch() · dummyjson.com/products/1',
+      action: () => fetchProductById(1),
+    },
+    {
+      id: 'fetch-create-product',
+      label: 'Create Product (JSON body)',
+      method: 'POST',
+      description: 'fetch() · POST + JSON body — exact-match mock',
+      action: fetchCreateProduct,
+    },
+    {
+      id: 'fetch-form-encoded',
+      label: 'Login (URLSearchParams body)',
+      method: 'POST',
+      description: 'fetch() · form-encoded body captured in panel',
+      action: fetchFormEncoded,
+    },
+    {
+      id: 'fetch-request-object',
+      label: 'Fetch via Request object',
+      method: 'GET',
+      description: 'fetch(new Request(...)) · custom header captured',
+      action: fetchViaRequestObject,
+    },
+    {
+      id: 'fetch-404',
+      label: 'Trigger 404',
+      method: 'GET',
+      description: 'fetch() · panel marks as error, caller sees !res.ok',
+      action: fetchNotFound,
+    },
+    {
+      id: 'fetch-network-error',
+      label: 'Trigger Network Failure',
+      method: 'GET',
+      description: 'fetch() · invalid host — surfaces as error row',
+      action: fetchNetworkError,
+    },
+  ];
+
   const renderGroup = (buttons: ButtonItem[]) =>
     buttons.map((btn) => (
       <ApiButton key={btn.id} item={btn} isDark={isDark} onPress={handleRequest} onNavigate={onNavigate} />
@@ -429,6 +491,16 @@ export const HomeScreen = ({ onNavigate }: { onNavigate?: (params: DetailScreenP
             isDark={isDark}
           />
           {renderGroup(countryButtons)}
+        </View>
+
+        {/* Section 6: Global fetch interception */}
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: isDark ? '#334155' : '#E5E7EB' }]}>
+          <SectionHeader
+            title="🌐  Fetch (global fetch interception)"
+            subtitle="No axios — uses window.fetch · same logging + same mocks"
+            isDark={isDark}
+          />
+          {renderGroup(fetchButtons)}
         </View>
 
         {/* Demo tip card */}

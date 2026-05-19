@@ -53,6 +53,9 @@ export default function App() {
     <NetworkLogger
       // Intercept all three axios clients
       instances={[jsonPlaceholderClient, pokeClient, countriesClient]}
+      // Also intercept the global `fetch` — see the "Fetch" section on Home.
+      // Defaults to true in v0.2+, but stated explicitly here for the demo.
+      enableFetch
       // Pre-load mocks so the Presets tab is ready to use straight away
       initialMocks={DEMO_PRESETS}
       // Always enabled in this demo; in a real app: enabled={__DEV__}

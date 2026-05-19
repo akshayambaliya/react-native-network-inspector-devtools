@@ -6,6 +6,7 @@ import {
 } from "../context/NetworkLoggerContext";
 import { NetworkLoggerAxiosInterceptor } from "./NetworkLoggerAxiosInterceptor";
 import { NetworkLoggerFAB } from "./NetworkLoggerFAB";
+import { NetworkLoggerFetchInterceptor } from "./NetworkLoggerFetchInterceptor";
 import { NetworkLoggerPanel } from "./NetworkLoggerPanel";
 import type { AxiosInstance } from "axios";
 
@@ -28,6 +29,22 @@ export interface NetworkLoggerProps extends NetworkLoggerProviderProps {
    * ```
    */
   enabled?: boolean;
+  /**
+   * Intercept the global `fetch` (in addition to any provided axios instances).
+   * **Defaults to `true`** — every `fetch(...)` call (including ones made by
+   * third-party libraries that use fetch internally) is captured in the panel
+   * and matched against your mock rules.
+   *
+   * Set to `false` to opt out — useful if you have your own fetch wrapper or
+   * want to limit interception to axios only:
+   *
+   * ```tsx
+   * <NetworkLogger enabled={__DEV__} enableFetch={false} instance={api}>
+   * ```
+   *
+   * @default true
+   */
+  enableFetch?: boolean;
   /**
    * Automatically capture JS console output and show it in the Console tab.
    * Defaults to `true`. Set to `false` to disable interception and hide the tab.
@@ -69,6 +86,7 @@ export const NetworkLogger = ({
   instance,
   instances,
   enabled = true,
+  enableFetch = true,
   fabPosition,
   children,
   ...providerProps
@@ -88,6 +106,7 @@ export const NetworkLogger = ({
       {allInstances.map((inst, i) => (
         <NetworkLoggerAxiosInterceptor key={i} instance={inst} />
       ))}
+      {enableFetch && <NetworkLoggerFetchInterceptor />}
       {children}
       <NetworkLoggerFAB position={fabPosition} />
       <NetworkLoggerPanel />
