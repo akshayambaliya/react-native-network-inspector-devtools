@@ -8,6 +8,8 @@ export type { NetworkLoggerProps } from './components/NetworkLogger';
 
 // Components
 export { NetworkLoggerAxiosInterceptor } from './components/NetworkLoggerAxiosInterceptor';
+export { NetworkLoggerFetchInterceptor } from './components/NetworkLoggerFetchInterceptor';
+export type { NetworkLoggerFetchInterceptorProps } from './components/NetworkLoggerFetchInterceptor';
 export { NetworkLoggerFAB } from './components/NetworkLoggerFAB';
 export { NetworkLoggerPanel } from './components/NetworkLoggerPanel';
 export { LogDetailView } from './components/LogDetailView';
@@ -15,9 +17,14 @@ export { MockEditor } from './components/MockEditor';
 export type { MockPrefill } from './components/MockEditor';
 export { MockListView } from './components/MockListView';
 export { MockDetailView } from './components/MockDetailView';
+export { ConsoleListView } from './components/ConsoleListView';
+export { ConsoleDetailView } from './components/ConsoleDetailView';
 
 // Low-level API (for manual interceptor installation)
 export { installInterceptors } from './utils/interceptor';
+export { installFetchInterceptor } from './utils/fetchInterceptor';
+export type { InstallFetchInterceptorOptions } from './utils/fetchInterceptor';
+export { isBlacklisted, matchesBlacklistRule } from './utils/blacklistMatcher';
 
 // Theme (for consumers who want to match the logger's color palette)
 export { DARK, LIGHT, METHOD_COLORS, useTheme } from './theme';
@@ -25,6 +32,10 @@ export type { Theme } from './theme';
 
 // Types
 export type {
+  BlacklistMatchType,
+  BlacklistRule,
+  ConsoleEntry,
+  ConsoleLogLevel,
   HttpMethod,
   MockPreset,
   MockPresetVariant,

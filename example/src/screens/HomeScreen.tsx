@@ -14,6 +14,7 @@ import {
   createPost,
   createTodo,
   deletePost,
+  getCommentsBlacklisted,
   getCountry,
   getPokemon,
   getPokemonList,
@@ -23,10 +24,21 @@ import {
   getUserById,
   getUsers,
   patchPost,
+  patchPostBlacklisted,
   postLogin,
   searchCountry,
   updatePost,
 } from '../api/endpoints';
+import {
+  fetchCreateProduct,
+  fetchFormEncoded,
+  fetchImageAssetBlacklisted,
+  fetchNetworkError,
+  fetchNotFound,
+  fetchProductById,
+  fetchProducts,
+  fetchViaRequestObject,
+} from '../api/fetchEndpoints';
 import type { DetailScreenParams, DetailScreenType } from './DetailsScreen';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -349,6 +361,87 @@ export const HomeScreen = ({ onNavigate }: { onNavigate?: (params: DetailScreenP
     },
   ];
 
+  // ─── Fetch (global fetch interception) ──────────────────────────────────
+  const fetchButtons: ButtonItem[] = [
+    {
+      id: 'fetch-products',
+      label: 'Fetch Products List',
+      method: 'GET',
+      description: 'fetch() · dummyjson.com/products — mock available',
+      action: fetchProducts,
+    },
+    {
+      id: 'fetch-product-1',
+      label: 'Fetch Product #1',
+      method: 'GET',
+      description: 'fetch() · dummyjson.com/products/1',
+      action: () => fetchProductById(1),
+    },
+    {
+      id: 'fetch-create-product',
+      label: 'Create Product (JSON body)',
+      method: 'POST',
+      description: 'fetch() · POST + JSON body — exact-match mock',
+      action: fetchCreateProduct,
+    },
+    {
+      id: 'fetch-form-encoded',
+      label: 'Login (URLSearchParams body)',
+      method: 'POST',
+      description: 'fetch() · form-encoded body captured in panel',
+      action: fetchFormEncoded,
+    },
+    {
+      id: 'fetch-request-object',
+      label: 'Fetch via Request object',
+      method: 'GET',
+      description: 'fetch(new Request(...)) · custom header captured',
+      action: fetchViaRequestObject,
+    },
+    {
+      id: 'fetch-404',
+      label: 'Trigger 404',
+      method: 'GET',
+      description: 'fetch() · panel marks as error, caller sees !res.ok',
+      action: fetchNotFound,
+    },
+    {
+      id: 'fetch-network-error',
+      label: 'Trigger Network Failure',
+      method: 'GET',
+      description: 'fetch() · invalid host — surfaces as error row',
+      action: fetchNetworkError,
+    },
+  ];
+
+  // ─── Blacklist (axios + fetch — invisible in the panel) ────────────────
+  // Each request below is configured in App.tsx's `blacklist` prop and is
+  // intentionally skipped by the interceptor: no log row, no mock applied,
+  // request reaches the network exactly as issued.
+  const blacklistButtons: ButtonItem[] = [
+    {
+      id: 'blk-comments',
+      label: 'GET /comments  (contains rule)',
+      method: 'GET',
+      description: 'axios · blacklist `/comments` — NOT shown in panel',
+      action: getCommentsBlacklisted,
+    },
+    {
+      id: 'blk-image',
+      label: 'Fetch Pikachu sprite  (regex rule)',
+      method: 'GET',
+      description: 'fetch() · regex blocks *.png — NOT shown in panel',
+      action: fetchImageAssetBlacklisted,
+    },
+    {
+      id: 'blk-patch-post',
+      label: 'PATCH /posts/1  (exact + method)',
+      method: 'PATCH',
+      description: 'Only PATCH is blacklisted — PUT/POST on same URL appear',
+      action: patchPostBlacklisted,
+    },
+  ];
+
   const renderGroup = (buttons: ButtonItem[]) =>
     buttons.map((btn) => (
       <ApiButton key={btn.id} item={btn} isDark={isDark} onPress={handleRequest} onNavigate={onNavigate} />
@@ -429,6 +522,39 @@ export const HomeScreen = ({ onNavigate }: { onNavigate?: (params: DetailScreenP
             isDark={isDark}
           />
           {renderGroup(countryButtons)}
+        </View>
+
+        {/* Section 6: Global fetch interception */}
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: isDark ? '#334155' : '#E5E7EB' }]}>
+          <SectionHeader
+            title="🌐  Fetch (global fetch interception)"
+            subtitle="No axios — uses window.fetch · same logging + same mocks"
+            isDark={isDark}
+          />
+          {renderGroup(fetchButtons)}
+        </View>
+
+        {/* Section 7: Blacklist — invisible to the panel */}
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: isDark ? '#334155' : '#E5E7EB' }]}>
+          <SectionHeader
+            title="🚫  Blacklist  (axios + fetch)"
+            subtitle="Configured in App.tsx · requests fire but NEVER appear in the panel"
+            isDark={isDark}
+          />
+          {renderGroup(blacklistButtons)}
+          <Text
+            style={{
+              fontSize: 11,
+              lineHeight: 16,
+              marginTop: 8,
+              color: isDark ? '#94A3B8' : '#6B7280',
+            }}
+          >
+            Tap any button above, then open the panel — the request will NOT
+            be listed in the Logs tab. Even if you add a mock for these URLs
+            in the My Mocks tab, the blacklist still wins and the original
+            network request is sent unchanged.
+          </Text>
         </View>
 
         {/* Demo tip card */}

@@ -15,6 +15,8 @@ import type { NetworkMock } from '../types';
 interface Props {
   mock: NetworkMock;
   onBack: () => void;
+  /** Called when the user clicks the Edit button. Only provided for user mocks. */
+  onEdit?: (mock: NetworkMock) => void;
 }
 
 /**
@@ -48,11 +50,13 @@ const prettyPrint = (value: unknown): string => {
   }
 };
 
-export const MockDetailView = ({ mock, onBack }: Props) => {
+export const MockDetailView = ({ mock, onBack, onEdit }: Props) => {
   const { dispatch } = useNetworkLogger();
   const theme = useTheme();
 
   const isPreset = mock.source === 'preset';
+  const isUserMock = mock.source === 'user';
+  const canEdit = isUserMock && !!onEdit;
   const prettyBody = prettyPrint(mock.responseBody);
   const safeStatus = mock.status ?? 0;
   const matchType = mock.matchType ?? 'contains';
@@ -82,15 +86,30 @@ export const MockDetailView = ({ mock, onBack }: Props) => {
         <Text style={[styles.headerTitle, { color: theme.text }]}>Mock Details</Text>
 
         <View style={styles.headerRight}>
-          <Switch
-            value={mock.enabled}
-            onValueChange={() =>
-              dispatch({ type: 'TOGGLE_MOCK', payload: mock.id })
-            }
-            trackColor={{ false: '#767577', true: theme.primary }}
-            accessibilityLabel={`Toggle mock for ${mock.urlPattern}`}
-            accessibilityRole="switch"
-          />
+          <View style={styles.switchWrapper}>
+            <Switch
+              value={mock.enabled}
+              onValueChange={() =>
+                dispatch({ type: 'TOGGLE_MOCK', payload: mock.id })
+              }
+              trackColor={{ false: '#767577', true: theme.primary }}
+              style={styles.switch}
+              accessibilityLabel={`Toggle mock for ${mock.urlPattern}`}
+              accessibilityRole="switch"
+            />
+          </View>
+          {canEdit && (
+            <TouchableOpacity
+              onPress={() => onEdit!(mock)}
+              style={styles.editButton}
+              accessibilityRole="button"
+              accessibilityLabel={`Edit mock for ${mock.urlPattern}`}
+            >
+              <Text style={[styles.editButtonText, { color: theme.primary }]}>
+                Edit
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -336,6 +355,16 @@ const styles = StyleSheet.create({
   headerRight: {
     minWidth: 64,
     alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  editButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  editButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   scroll: { flex: 1 },
   content: {
@@ -525,5 +554,14 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 12,
     lineHeight: 18,
+  },
+  switchWrapper: {
+    width: 52,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  switch: {
+    transform: [{ scaleX: 0.82 }, { scaleY: 0.82 }],
   },
 });

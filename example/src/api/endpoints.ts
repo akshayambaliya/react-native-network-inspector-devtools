@@ -75,3 +75,21 @@ export const getCountry = (code: string) =>
 
 export const searchCountry = (name: string) =>
   countriesClient.get(`/name/${name}`);
+
+// ─── Blacklist demo (axios) ─────────────────────────────────────────────────
+// These endpoints exercise the `blacklist` prop configured in App.tsx. The
+// requests still fire over the wire (the library does not block the network)
+// but they are intentionally invisible inside the panel — no log row appears,
+// and any matching mock is bypassed.
+
+/** Matches the `contains: '/comments'` blacklist rule. */
+export const getCommentsBlacklisted = () =>
+  jsonPlaceholderClient.get('/comments?_limit=3');
+
+/**
+ * Hits the same URL as `patchPost`/`updatePost`/etc., but only the PATCH
+ * verb is blacklisted via `{ matchType: 'exact', method: 'PATCH' }` in
+ * App.tsx — so PUT/POST on the same URL still appear in the panel.
+ */
+export const patchPostBlacklisted = () =>
+  jsonPlaceholderClient.patch('/posts/1', { title: 'Blacklisted PATCH' });

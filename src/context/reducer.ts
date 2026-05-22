@@ -2,6 +2,7 @@ import type { NetworkLoggerAction, NetworkLoggerState } from '../types';
 
 export const initialState: NetworkLoggerState = {
   entries: [],
+  consoleEntries: [],
   mocks: [],
   isVisible: false,
   isFabVisible: true,
@@ -27,12 +28,20 @@ export function reducer(
       };
     case 'CLEAR_ENTRIES':
       return { ...state, entries: [], selectedEntryId: null };
+    case 'ADD_CONSOLE_ENTRY': {
+      const consoleEntries = [action.payload, ...state.consoleEntries];
+      return { ...state, consoleEntries: consoleEntries.slice(0, state.maxEntries) };
+    }
+    case 'CLEAR_CONSOLE_ENTRIES':
+      return { ...state, consoleEntries: [] };
     case 'SET_VISIBLE':
       return { ...state, isVisible: action.payload };
     case 'SET_FAB_VISIBLE':
       return { ...state, isFabVisible: action.payload };
     case 'SET_SELECTED_ENTRY':
       return { ...state, selectedEntryId: action.payload };
+    case 'HYDRATE_MOCKS':
+      return { ...state, mocks: action.payload };
     case 'ADD_MOCK': {
       // Deduplicate only within user-added mocks.
       // Preset mocks with the same URL+method are intentionally kept — the
@@ -65,6 +74,33 @@ export function reducer(
       };
       return { ...state, mocks: [...filtered, withData] };
     }
+    case 'UPDATE_MOCK': {
+      return {
+        ...state,
+        mocks: state.mocks.map((m) => {
+          if (m.id !== action.payload.id) return m;
+          const patched = { ...m, ...action.payload.patch };
+          // Keep the active variant in sync with the top-level fields that were
+          // patched. This prevents SET_MOCK_VARIANT from reverting to stale data
+          // after the user edits a mock through MockEditor.
+          const { patch } = action.payload;
+          if (patched.variants?.length && patched.activeVariantId) {
+            patched.variants = patched.variants.map((v) =>
+              v.id === patched.activeVariantId
+                ? {
+                    ...v,
+                    ...('status' in patch && { status: patch.status }),
+                    ...('responseBody' in patch && { responseBody: patch.responseBody }),
+                    ...('delay' in patch && { delay: patch.delay }),
+                    ...('responseHeaders' in patch && { responseHeaders: patch.responseHeaders }),
+                  }
+                : v
+            );
+          }
+          return patched;
+        }),
+      };
+    }
     case 'REMOVE_MOCK':
       return { ...state, mocks: state.mocks.filter((m) => m.id !== action.payload) };
     case 'TOGGLE_MOCK':
@@ -72,6 +108,24 @@ export function reducer(
         ...state,
         mocks: state.mocks.map((m) =>
           m.id === action.payload ? { ...m, enabled: !m.enabled } : m
+        ),
+      };
+    case 'SET_SOURCE_MOCKS_ENABLED':
+      return {
+        ...state,
+        mocks: state.mocks.map((m) =>
+          (action.payload.source === 'preset'
+            ? m.source === 'preset'
+            : m.source !== 'preset')
+            ? { ...m, enabled: action.payload.enabled }
+            : m
+        ),
+      };
+    case 'TOGGLE_MOCK_PIN':
+      return {
+        ...state,
+        mocks: state.mocks.map((m) =>
+          m.id === action.payload ? { ...m, pinned: !m.pinned } : m
         ),
       };
     case 'SET_MOCK_VARIANT': {

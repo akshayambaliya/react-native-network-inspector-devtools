@@ -14,6 +14,54 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 
  */
 export type MockUrlMatchType = 'contains' | 'exact' | 'regex';
 
+/**
+ * Controls how a `BlacklistRule.urlPattern` is matched against the request URL.
+ * Shares the same vocabulary as `MockUrlMatchType` so consumers learn a single
+ * matching model across mocks and the blacklist.
+ */
+export type BlacklistMatchType = 'contains' | 'exact' | 'regex';
+
+/**
+ * A developer-configured rule describing requests that the logger must ignore.
+ *
+ * When an outgoing request matches **any** rule:
+ *   - it is **not** added to the panel,
+ *   - **no** mock is applied to it (even if a mock rule would have matched),
+ *   - the original request reaches the network exactly as the consumer issued it.
+ *
+ * Rules are intended for noisy endpoints (analytics beacons, polling health
+ * checks, asset downloads) and for sensitive endpoints (auth, payments) that
+ * must never be visible inside the in-app inspector.
+ *
+ * @example
+ * ```tsx
+ * <NetworkLogger
+ *   enabled={__DEV__}
+ *   instance={apiClient}
+ *   blacklist={[
+ *     { urlPattern: '/analytics/' },
+ *     { urlPattern: 'https://api.example.com/auth/login', matchType: 'exact', method: 'POST' },
+ *     { urlPattern: '\\.(png|jpg|gif|webp)(\\?|$)', matchType: 'regex' },
+ *   ]}
+ * >
+ * ```
+ */
+export interface BlacklistRule {
+  /** URL pattern to match. How it is interpreted depends on `matchType`. */
+  urlPattern: string;
+  /**
+   * How `urlPattern` is matched against the request URL.
+   * Defaults to `'contains'`.
+   */
+  matchType?: BlacklistMatchType;
+  /**
+   * Restrict the rule to a single HTTP method. Defaults to `'ALL'` — the rule
+   * applies regardless of method, which is the common case for blocking an
+   * endpoint by URL alone.
+   */
+  method?: HttpMethod | 'ALL';
+}
+
 export interface NetworkLogEntry {
   id: string;
   url: string;
@@ -28,6 +76,18 @@ export interface NetworkLogEntry {
   endTime?: number;
   state: NetworkLogState;
   isMocked: boolean;
+}
+
+export type ConsoleLogLevel = 'log' | 'info' | 'warn' | 'error';
+
+export interface ConsoleEntry {
+  id: string;
+  level: ConsoleLogLevel;
+  /** Single-line preview used in the list UI. */
+  message: string;
+  /** Full formatted payload shown in the detail view. */
+  detail: string;
+  timestamp: number;
 }
 
 /**
@@ -82,6 +142,12 @@ export interface NetworkMock {
    * `0` or `undefined` means respond immediately.
    */
   delay?: number;
+  /**
+   * When `true` the mock is pinned to the top of the list in the Mocks / Presets tabs.
+   * Pinned mocks are sorted before unpinned ones; the relative order within each
+   * group is preserved (insertion order).
+   */
+  pinned?: boolean;
 }
 
 /**
@@ -198,6 +264,7 @@ export interface MockPreset {
 
 export interface NetworkLoggerState {
   entries: NetworkLogEntry[];
+  consoleEntries: ConsoleEntry[];
   mocks: NetworkMock[];
   isVisible: boolean;
   isFabVisible: boolean;
@@ -209,10 +276,16 @@ export type NetworkLoggerAction =
   | { type: 'ADD_ENTRY'; payload: NetworkLogEntry }
   | { type: 'UPDATE_ENTRY'; payload: { id: string; patch: Partial<NetworkLogEntry> } }
   | { type: 'CLEAR_ENTRIES' }
+  | { type: 'ADD_CONSOLE_ENTRY'; payload: ConsoleEntry }
+  | { type: 'CLEAR_CONSOLE_ENTRIES' }
   | { type: 'SET_VISIBLE'; payload: boolean }
   | { type: 'SET_FAB_VISIBLE'; payload: boolean }
   | { type: 'SET_SELECTED_ENTRY'; payload: string | null }
+  | { type: 'HYDRATE_MOCKS'; payload: NetworkMock[] }
   | { type: 'ADD_MOCK'; payload: NetworkMock }
+  | { type: 'UPDATE_MOCK'; payload: { id: string; patch: Partial<NetworkMock> } }
   | { type: 'REMOVE_MOCK'; payload: string }
   | { type: 'TOGGLE_MOCK'; payload: string }
+  | { type: 'SET_SOURCE_MOCKS_ENABLED'; payload: { source: 'preset' | 'user'; enabled: boolean } }
+  | { type: 'TOGGLE_MOCK_PIN'; payload: string }
   | { type: 'SET_MOCK_VARIANT'; payload: { mockId: string; variantId: string } };

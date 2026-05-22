@@ -2,7 +2,7 @@
 
 <h1>react-native-network-inspector-devtools</h1>
 
-<p>In-app network request logger and response mocker for React Native built for QA and debug builds.</p>
+<p>In-app network request logger and response mocker for React Native built for QA and debug builds. Works out of the box with <strong>axios</strong> and the global <strong>fetch</strong>.</p>
 
 [![npm version](https://img.shields.io/npm/v/react-native-network-inspector-devtools?style=flat-square&color=blue)](https://www.npmjs.com/package/react-native-network-inspector-devtools)
 [![npm downloads](https://img.shields.io/npm/dm/react-native-network-inspector-devtools?style=flat-square&color=green)](https://www.npmjs.com/package/react-native-network-inspector-devtools)
@@ -15,7 +15,7 @@
 
 ---
 
-Tap the floating button inside your app to inspect every outgoing axios request URL, method, headers, request body, response body, status code, and duration all without leaving your device or opening a desktop DevTools window. Mock any endpoint at runtime, switch between response variants on the fly, and test your UI under edge-case conditions without changing a single line of server code.
+Tap the floating button inside your app to inspect every outgoing axios **or fetch** request URL, method, headers, request body, response body, status code, and duration all without leaving your device or opening a desktop DevTools window. Mock any endpoint at runtime regardless of whether it goes through axios or `fetch`, switch between response variants on the fly, and test your UI under edge-case conditions without changing a single line of server code.
 
 ---
 
@@ -26,7 +26,7 @@ Tap the floating button inside your app to inspect every outgoing axios request 
   <tr>
     <td align="center" width="50%">
       <h3>🔍&nbsp; Request Logs</h3>
-      <p>Inspect every axios request in real time URL, method, status, headers, request &amp; response bodies, and duration. Filter by method or search by URL.</p>
+      <p>Inspect every axios <strong>and</strong> fetch request in real time URL, method, status, headers, request &amp; response bodies, and duration. Filter by method or search by URL.</p>
       <a href="https://github.com/user-attachments/assets/eb35178a-deb8-49a4-aac6-e713739a4503">
         <img src="https://raw.githubusercontent.com/akshayambaliya/images/ca1005b8190ecde445bfe033525e50ca03552b3c/Simulator%20Screenshot%20-%20iPhone%2015%20Pro%2018.1%20-%202026-04-10%20at%2022.08.22.png" width="320" alt="Request Logs Demo" />
       </a>
@@ -70,15 +70,18 @@ Tap the floating button inside your app to inspect every outgoing axios request 
 - [Quick Start](#quick-start)
 - [Usage Examples](#usage-examples)
   - [Multiple Axios Instances](#1-multiple-axios-instances)
-  - [Pre-loading Mock Rules for QA Builds](#2-pre-loading-mock-rules-for-qa-builds)
-  - [Always-on QA Build with Increased Log Buffer](#3-always-on-qa-build-with-increased-log-buffer)
-  - [Manual Setup for Full Rendering Control](#4-manual-setup-for-full-rendering-control)
+  - [Fetch Support (Enabled by Default)](#2-fetch-support-enabled-by-default)
+  - [Pre-loading Mock Rules for QA Builds](#3-pre-loading-mock-rules-for-qa-builds)
+  - [URL Blacklist (Skip Noisy or Sensitive Endpoints)](#4-url-blacklist-skip-noisy-or-sensitive-endpoints)
+  - [Always-on QA Build with Increased Log Buffer](#5-always-on-qa-build-with-increased-log-buffer)
+  - [Manual Setup for Full Rendering Control](#6-manual-setup-for-full-rendering-control)
 - [URL Match Types](#url-match-types)
 - [Configuration](#configuration)
   - [\<NetworkLogger\> Props](#networklogger-props)
   - [\<NetworkLoggerProvider\> Props](#networkloggerprovider-props)
   - [\<NetworkLoggerFAB\> Props](#networkloggerfab-props)
   - [MockPreset Options](#mockpreset-options)
+  - [BlacklistRule Options](#blacklistrule-options)
 - [API Reference](#api-reference)
 - [Contributing](#contributing)
 - [License](#license)
@@ -90,20 +93,25 @@ Tap the floating button inside your app to inspect every outgoing axios request 
 |                                |                                                                                                                                                                                                                                  |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **One-component setup**        | A single `<NetworkLogger>` wrapper replaces all manual wiring.                                                                                                                                                                   |
+| **Axios + Fetch support**      | Captures and mocks every `axios` request **and** every global `fetch(...)` call out of the box — including fetch calls made by third-party libraries. Mock rules apply uniformly regardless of which client made the request.   |
 | **Live request inspector**     | View URL, method, headers, request body, response body, status, and duration for every request.                                                                                                                                  |
-| **Search & filter**            | Filter logs by URL or HTTP method in real time.                                                                                                                                                                                  |
+| **Search & filter**            | Filter logs by URL/method, filter console entries by level/content, and search presets by method, URL, or variant name.                                                                                                        |
 | **Export logs**                | Share any request/response as formatted JSON via the native share sheet on every field, section header, and from the detail screen header.                                                                                       |
 | **Response mocking**           | Force any endpoint to return a custom response without touching the server.                                                                                                                                                      |
 | **Mock variants**              | Each rule carries multiple response scenarios; QA switches between them instantly at runtime without restarting the app.                                                                                                         |
 | **Developer preset mocks**     | Pass `initialMocks` to pre-load rules at startup they appear with a **PRESET** badge in the panel.                                                                                                                               |
+| **URL blacklist**              | Pass `blacklist` to silently skip noisy or sensitive endpoints (analytics, auth, asset downloads). Matching requests are never logged and never mocked — they pass straight through to the real network. Supports `contains`, `exact`, and `regex` matching, with an optional per-method filter. |
 | **Smart match priority**       | `exact` beats `regex` beats `contains`; longer patterns beat shorter within the same type; user mocks always beat presets.                                                                                                       |
-| **Correct 4xx/5xx behaviour**  | Mocked error responses throw an `AxiosError` with `error.response` populated, so your `catch` blocks fire exactly as they would with a real server.                                                                              |
+| **Correct 4xx/5xx behaviour**  | Mocked error responses throw an `AxiosError` (axios) or return a `Response` with the correct `status` so `res.ok === false` (fetch), so your `catch` and `if (!res.ok)` branches fire exactly as they would with a real server. |
 | **One-tap mock prefill**       | Tap any log row → **Mock** to pre-fill the editor instantly.                                                                                                                                                                     |
-| **4-tab panel**                | Logs / Add Mock / My Mocks / Presets. The **My Mocks** and **Presets** tabs each show a green ping dot when at least one mock in that category is currently enabled a quick in-panel signal that requests are being intercepted. |
+| **Preset controls**            | The Presets tab includes a search box and an **All Presets** switch to enable/disable every preset mock in one action.                                                                                                         |
+| **5-tab panel**                | Logs / Add Mock / My Mocks / Presets / Console. The **My Mocks** and **Presets** tabs show a green ping dot when at least one mock in that category is enabled.                                                               |
+| **Automatic console capture**  | Captures `console.log`, `console.info`, `console.warn`, and `console.error` after mount and shows them in the Console tab with large-payload-safe rendering.                                                                    |
 | **Mock active indicator**      | A **green dot** appears on the FAB corner whenever one or more mocks are enabled, so you can see interception is active without opening the panel at all.                                                                        |
 | **Draggable FAB**              | Drag the floating button to any corner of the screen at runtime.                                                                                                                                                                 |
 | **Dark mode**                  | Follows the device color scheme automatically.                                                                                                                                                                                   |
 | **Multiple axios instances**   | Intercept as many clients as you need.                                                                                                                                                                                           |
+| **Global fetch interception**  | The global `fetch` is patched once on mount (idempotent, restored on unmount). Supports string / `URL` / `Request` inputs and `Headers` / array / object headers.                                                                |
 | **Zero production overhead**   | Pass `enabled={__DEV__}` to strip everything in release builds.                                                                                                                                                                  |
 | **Zero non-peer dependencies** | Only `react`, `react-native`, and `axios`.                                                                                                                                                                                       |
 | **Fully typed**                | Complete TypeScript definitions bundled no `@types/` package needed.                                                                                                                                                             |
@@ -127,7 +135,7 @@ pnpm add react-native-network-inspector-devtools
 
 ## Quick Start
 
-Wrap your app root with `<NetworkLogger>` and you are done. A floating 🌐 button appears in dev builds.
+Wrap your app root with `<NetworkLogger>` and you are done. A floating 🌐 button appears in dev builds. Both your axios instance(s) **and** the global `fetch` are intercepted automatically.
 
 ```tsx
 // App.tsx
@@ -146,7 +154,9 @@ export default function App() {
 }
 ```
 
-> **That is the entire setup.** Tap the floating button → inspect any request → tap **Mock** on a row to intercept it → toggle it on.
+> **That is the entire setup.** Tap the floating button → inspect any request (axios or fetch) → tap **Mock** on a row to intercept it → toggle it on.
+
+> Want axios-only? Pass `enableFetch={false}` to skip patching the global `fetch`.
 
 ---
 
@@ -174,7 +184,79 @@ export default function App() {
 
 ---
 
-### 2. Pre-loading Mock Rules for QA Builds
+### 2. Fetch Support (Enabled by Default)
+
+The global `fetch` is patched automatically when `<NetworkLogger>` mounts. No extra configuration is required — calls made directly by your code, by axios's fetch adapter, or by third-party libraries are all captured.
+
+```tsx
+// Any fetch() call in your tree now shows up in the panel
+// and respects all configured mock rules.
+async function loadDashboard() {
+  const res = await fetch("https://api.example.com/dashboard", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: 42 }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+```
+
+**Mocking a fetch endpoint works exactly like axios** — the same `MockPreset` shape, the same matching rules, the same panel UI:
+
+```tsx
+import type { MockPreset } from "react-native-network-inspector-devtools";
+
+const fetchMocks: MockPreset[] = [
+  {
+    urlPattern: "api.example.com/dashboard",
+    method: "POST",
+    matchType: "contains",
+    status: 200,
+    responseBody: JSON.stringify({ widgets: [], cached: true }),
+    variants: [
+      {
+        name: "Unauthorized",
+        status: 401,
+        responseBody: JSON.stringify({ error: "Token expired" }),
+      },
+      {
+        name: "Slow (3s)",
+        status: 200,
+        responseBody: JSON.stringify({ widgets: [{ id: 1 }] }),
+        delay: 3000,
+      },
+    ],
+  },
+];
+
+export default function App() {
+  return (
+    <NetworkLogger enabled={__DEV__} initialMocks={fetchMocks}>
+      <RootNavigator />
+    </NetworkLogger>
+  );
+}
+```
+
+**Opt out** if you have your own fetch wrapper or only want axios interception:
+
+```tsx
+<NetworkLogger enabled={__DEV__} enableFetch={false} instance={apiClient}>
+  <RootNavigator />
+</NetworkLogger>
+```
+
+> **Why this is safe:**
+>
+> - The patch is **idempotent** — mounting `<NetworkLogger>` twice (or mixing it with the manual `<NetworkLoggerFetchInterceptor>`) won't double-wrap fetch or produce duplicate log rows.
+> - On unmount the original `fetch` is restored.
+> - When `enabled={false}` (e.g. production builds) nothing is patched at all.
+> - Non-2xx mocked responses produce a real `Response` with the correct status, so `res.ok` and `if (!res.ok)` behave identically to a real server.
+
+---
+
+### 3. Pre-loading Mock Rules for QA Builds
 
 Seed the **Presets** tab with predefined responses at startup no UI interaction needed. The mocks are ready the moment the app opens.
 
@@ -246,7 +328,57 @@ export default function App() {
 
 ---
 
-### 3. Always-on QA Build with Increased Log Buffer
+### 4. URL Blacklist (Skip Noisy or Sensitive Endpoints)
+
+Pass a `blacklist` array to silently exclude requests from the panel. Matching requests:
+
+- are **never** added to the Logs tab,
+- are **never** mocked — even if a matching preset/user mock is enabled,
+- reach the network exactly as the consumer issued them.
+
+Use it for noisy endpoints (analytics beacons, polling health checks, image / asset downloads) and for sensitive endpoints (auth tokens, payments) that must not surface in an in-app inspector — even on internal builds.
+
+```tsx
+import { NetworkLogger } from "react-native-network-inspector-devtools";
+import type { BlacklistRule } from "react-native-network-inspector-devtools";
+
+const blacklist: BlacklistRule[] = [
+  // CONTAINS (default) — case-insensitive substring match on the URL.
+  // Hides every analytics beacon regardless of method.
+  { urlPattern: "/analytics/" },
+
+  // EXACT + METHOD — block only POST on this specific URL.
+  // GET/PUT on the same URL still appear in the panel.
+  {
+    urlPattern: "https://api.example.com/v1/auth/token",
+    matchType: "exact",
+    method: "POST",
+  },
+
+  // REGEX — hide static image assets (any extension, with or without query).
+  { urlPattern: "\\.(png|jpe?g|gif|webp)(\\?|$)", matchType: "regex" },
+];
+
+export default function App() {
+  return (
+    <NetworkLogger
+      enabled={__DEV__}
+      instance={apiClient}
+      blacklist={blacklist}
+    >
+      <RootNavigator />
+    </NetworkLogger>
+  );
+}
+```
+
+> **Blacklist always beats mocks.** If a URL is matched by both the blacklist and a mock rule (preset or user-added), the blacklist wins — the original network request is sent and no log row is created. This is intentional and lets you guarantee certain endpoints never participate in the inspector lifecycle, even when QA enables "All Presets".
+
+> **The blacklist is developer config, not runtime state.** It is read from the `blacklist` prop and never persisted to AsyncStorage. Change the prop value and the next request honours the new list immediately (no remount needed).
+
+---
+
+### 5. Always-on QA Build with Increased Log Buffer
 
 Keep the logger active in internal QA builds without enabling it in production.
 
@@ -271,14 +403,15 @@ export default function App() {
 
 ---
 
-### 4. Manual Setup for Full Rendering Control
+### 6. Manual Setup for Full Rendering Control
 
-Use the individual primitives when you need the panel in a specific position, inside a portal, or wrapped in a feature flag gate.
+Use the individual primitives when you need the panel in a specific position, inside a portal, or wrapped in a feature flag gate. Add `<NetworkLoggerFetchInterceptor />` when you want fetch coverage in the manual setup.
 
 ```tsx
 import {
   NetworkLoggerProvider,
   NetworkLoggerAxiosInterceptor,
+  NetworkLoggerFetchInterceptor,
   NetworkLoggerFAB,
   NetworkLoggerPanel,
 } from "react-native-network-inspector-devtools";
@@ -289,6 +422,8 @@ export default function App() {
     <NetworkLoggerProvider maxEntries={300}>
       <NetworkLoggerAxiosInterceptor instance={apiClient} />
       <NetworkLoggerAxiosInterceptor instance={uploadClient} />
+      {/* Mount once — patches global fetch and restores it on unmount. */}
+      <NetworkLoggerFetchInterceptor />
 
       <RootNavigator />
 
@@ -330,12 +465,15 @@ All-in-one wrapper component. Recommended for most use cases.
 | `enabled`      | `boolean`                          | `true`                      | When `false`, renders children only zero library overhead. Use `enabled={__DEV__}`. |
 | `instance`     | `AxiosInstance`                    | —                           | A single axios instance to intercept.                                               |
 | `instances`    | `AxiosInstance[]`                  | —                           | Multiple axios instances. Can be combined with `instance`.                          |
-| `initialMocks` | `MockPreset[]`                     | —                           | Pre-load mock rules at startup. Appear in the **Presets** tab with a badge.         |
+| `enableFetch`  | `boolean`                          | `true`                      | Intercept the global `fetch` (and any fetch calls made by third-party libraries). Pass `false` to opt out and intercept axios only. |
+| `initialMocks` | `MockPreset[]`                     | —                           | Pre-load mock rules at startup. Appear in the **Presets** tab with a badge. Mocks apply to both axios and fetch. |
+| `blacklist`    | `BlacklistRule[]`                  | —                           | URL patterns to silently skip. Matching requests are not logged and not mocked. See [BlacklistRule Options](#blacklistrule-options). |
+| `enableConsoleCapture` | `boolean`                 | `true`                      | Capture JS console output and show the **Console** tab. Set `false` to disable listener setup and hide the tab. |
 | `fabPosition`  | `{ bottom?, top?, left?, right? }` | `{ bottom: 90, right: 16 }` | Starting position of the floating button. Draggable at runtime.                     |
 | `maxEntries`   | `number`                           | `200`                       | Maximum log entries to retain. Oldest are dropped when the cap is reached.          |
 | `children`     | `ReactNode`                        | —                           | Your app tree.                                                                      |
 
-> **Note:** The `showMockIndicator` prop (green dot on the FAB corner) is not forwarded through `<NetworkLogger>`. If you need to control it, use the [manual setup](#4-manual-setup-for-full-rendering-control) and pass `showMockIndicator` directly to `<NetworkLoggerFAB>`.
+> **Note:** The `showMockIndicator` prop (green dot on the FAB corner) is not forwarded through `<NetworkLogger>`. If you need to control it, use the [manual setup](#5-manual-setup-for-full-rendering-control) and pass `showMockIndicator` directly to `<NetworkLoggerFAB>`.
 
 ---
 
@@ -343,11 +481,13 @@ All-in-one wrapper component. Recommended for most use cases.
 
 Context provider for the manual setup pattern.
 
-| Prop           | Type           | Default | Description                     |
-| -------------- | -------------- | ------- | ------------------------------- |
-| `initialMocks` | `MockPreset[]` | —       | Pre-load mock rules at startup. |
-| `maxEntries`   | `number`       | `200`   | Maximum log entries to retain.  |
-| `children`     | `ReactNode`    | —       | Your app tree.                  |
+| Prop                   | Type           | Default | Description                                                                 |
+| ---------------------- | -------------- | ------- | --------------------------------------------------------------------------- |
+| `initialMocks`         | `MockPreset[]` | —       | Pre-load mock rules at startup.                                             |
+| `blacklist`            | `BlacklistRule[]` | —    | URL patterns to silently skip. Matching requests are not logged and not mocked. See [BlacklistRule Options](#blacklistrule-options). |
+| `maxEntries`           | `number`       | `200`   | Maximum log entries to retain (applies to network + console entries).       |
+| `enableConsoleCapture` | `boolean`      | `true`  | Capture JS console output and expose the Console tab. Set `false` to disable. |
+| `children`             | `ReactNode`    | —       | Your app tree.                                                              |
 
 ---
 
@@ -380,6 +520,33 @@ The floating 🌐 button that opens the panel.
 
 ---
 
+### `BlacklistRule` Options
+
+A single rule passed inside the `blacklist` array. Matching requests are skipped before logging and before mock matching — the original request reaches the network unchanged.
+
+| Field        | Type                              | Required | Description                                                                                              |
+| ------------ | --------------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `urlPattern` | `string`                          | ✅       | The pattern to match against outgoing request URLs.                                                       |
+| `matchType`  | `'contains' \| 'exact' \| 'regex'` | —        | How `urlPattern` is interpreted. Defaults to `'contains'`. Shares the same vocabulary as `MockUrlMatchType`. |
+| `method`     | `HttpMethod \| 'ALL'`             | —        | Restrict the rule to a single HTTP method (e.g. `'POST'`). Defaults to `'ALL'` — matches any method.     |
+
+**Examples:**
+
+```tsx
+// Drop every URL containing "/analytics/", any HTTP method.
+{ urlPattern: "/analytics/" }
+
+// Drop only POST requests to one exact URL.
+{ urlPattern: "https://api.example.com/v1/auth/token", matchType: "exact", method: "POST" }
+
+// Drop any static image asset (regex).
+{ urlPattern: "\\.(png|jpe?g|gif|webp)(\\?|$)", matchType: "regex" }
+```
+
+> **Safety:** an invalid regex never throws — the rule simply does not match. Malformed entries (missing `urlPattern`, wrong types from untyped JS callers) are filtered out at the provider boundary and never reach the interceptors.
+
+---
+
 ## API Reference
 
 ### `<NetworkLogger>`
@@ -394,7 +561,7 @@ import { NetworkLogger } from "react-native-network-inspector-devtools";
 
 ### `<NetworkLoggerProvider>`
 
-Context provider. Use directly only when you need the [manual setup](#4-manual-setup-for-full-rendering-control) pattern.
+Context provider. Use directly only when you need the [manual setup](#5-manual-setup-for-full-rendering-control) pattern.
 
 ```tsx
 import { NetworkLoggerProvider } from "react-native-network-inspector-devtools";
@@ -410,6 +577,20 @@ Attaches axios request/response interceptors for a single instance. Must be rend
 import { NetworkLoggerAxiosInterceptor } from "react-native-network-inspector-devtools";
 // Props: instance: AxiosInstance
 ```
+
+---
+
+### `<NetworkLoggerFetchInterceptor>`
+
+Patches the global `fetch` while mounted so every fetch call (yours or any third-party library's) shows up in the panel and respects all configured mock rules. The patch is **idempotent** — mounting it more than once is a no-op (a single dev-only warning is logged). On unmount the original `fetch` is restored. Must be rendered inside `<NetworkLoggerProvider>`. Mount **once** per app.
+
+```tsx
+import { NetworkLoggerFetchInterceptor } from "react-native-network-inspector-devtools";
+// Optional props:
+//   target?: { fetch: typeof fetch }  // defaults to globalThis
+```
+
+> Already included automatically by `<NetworkLogger>` (controlled by the `enableFetch` prop, default `true`). Use this component directly only with the [manual setup](#5-manual-setup-for-full-rendering-control).
 
 ---
 

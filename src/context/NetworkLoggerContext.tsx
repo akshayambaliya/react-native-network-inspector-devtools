@@ -1,19 +1,74 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
+  useRef,
   type Dispatch,
 } from "react";
 
 import type {
+  ConsoleEntry,
   MockPreset,
   MockVariant,
   NetworkLogEntry,
   NetworkLoggerAction,
   NetworkMock,
+  BlacklistRule,
 } from "../types";
 import { initialState, reducer } from "./reducer";
+import { subscribeToConsoleEntries } from '../utils/consoleInterceptor';
+
+const MOCKS_STORAGE_KEY = 'react-native-network-inspector-devtools:mocks';
+
+function mergeMocks(presetMocks: NetworkMock[], savedMocks: NetworkMock[]) {
+  const mergedPresets = presetMocks.map((preset) => {
+    const savedPreset = savedMocks.find(
+      (savedMock) => savedMock.source === 'preset' && savedMock.id === preset.id
+    );
+    if (!savedPreset) return preset;
+
+    const activeVariant =
+      preset.variants?.find((variant) => variant.id === savedPreset.activeVariantId) ??
+      preset.variants?.[0];
+
+    return {
+      ...preset,
+      enabled: savedPreset.enabled,
+      // Carry over pinned state the user set at runtime.
+      pinned: savedPreset.pinned,
+      activeVariantId: activeVariant?.id ?? preset.activeVariantId,
+      status: activeVariant?.status ?? preset.status,
+      responseBody: activeVariant?.responseBody ?? preset.responseBody,
+      responseHeaders: activeVariant?.responseHeaders ?? preset.responseHeaders,
+      delay: activeVariant?.delay ?? preset.delay,
+    };
+  });
+
+  // Persisted user mocks are always retained, even when they share URL+method
+  // with a preset. This is required for long-lived user overrides across app
+  // restarts (the request matcher already prioritizes user mocks first).
+  const savedUserMocks = savedMocks.filter((mock) => mock.source !== 'preset');
+
+  return [...mergedPresets, ...savedUserMocks];
+}
+
+function isNetworkMock(value: unknown): value is NetworkMock {
+  if (!value || typeof value !== 'object') return false;
+
+  const candidate = value as Partial<NetworkMock>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.urlPattern === 'string' &&
+    typeof candidate.method === 'string' &&
+    typeof candidate.status === 'number' &&
+    typeof candidate.responseBody === 'string' &&
+    typeof candidate.enabled === 'boolean'
+  );
+}
 
 /**
  * Converts developer-provided MockPreset definitions to internal NetworkMock records.
@@ -91,7 +146,7 @@ function presetsToMocks(presets: MockPreset[]): NetworkMock[] {
     return {
       id: presetId,
       urlPattern: p.urlPattern,
-      method: p.method,
+      method: p.method.toUpperCase(),
       matchType: p.matchType ?? 'contains',
       // Resolved top-level fields always mirror the active variant so the
       // interceptor never needs to know about the variants structure.
@@ -109,14 +164,25 @@ function presetsToMocks(presets: MockPreset[]): NetworkMock[] {
 
 export interface NetworkLoggerContextValue {
   entries: NetworkLogEntry[];
+  consoleEntries: ConsoleEntry[];
   mocks: NetworkMock[];
+  consoleCaptureEnabled: boolean;
   /** Mocks that are currently enabled and will intercept matching requests. */
   activeMocks: NetworkMock[];
+  /**
+   * Developer-configured rules describing requests the logger must ignore.
+   * Provided via the `blacklist` prop and re-exposed here so any consumer
+   * (interceptor components, custom integrations) can read the live list
+   * without re-importing the original source.
+   */
+  blacklist: BlacklistRule[];
   isVisible: boolean;
   isFabVisible: boolean;
   maxEntries: number;
   /** The currently selected log entry, or `null` if none selected. */
   selectedEntry: NetworkLogEntry | null;
+  /** Writes the current mock list to persistent storage (AsyncStorage). */
+  persistMocks: () => Promise<void>;
   dispatch: Dispatch<NetworkLoggerAction>;
 }
 
@@ -128,6 +194,12 @@ export interface NetworkLoggerProviderProps {
   children: React.ReactNode;
   /** Maximum number of log entries to retain. Oldest are dropped. Defaults to 200. */
   maxEntries?: number;
+  /**
+   * Automatically capture console.log/info/warn/error after the provider mounts.
+   * Defaults to `true`. Set to `false` to disable console interception,
+   * remove the Console tab from the UI, and avoid installing the listener.
+   */
+  enableConsoleCapture?: boolean;
   /**
    * Pre-load a set of mock rules at startup. These appear immediately in the
    * Mocks tab with a **PRESET** badge, are active by default, and can be
@@ -152,23 +224,139 @@ export interface NetworkLoggerProviderProps {
    * ```
    */
   initialMocks?: MockPreset[];
+  /**
+   * Developer-configured list of URL patterns the logger must ignore.
+   *
+   * Matching requests are **not** added to the panel and **no** mock is
+   * applied to them — they reach the network exactly as issued. Use this for:
+   *   - noisy endpoints (analytics, polling, heartbeat, asset fetches),
+   *   - sensitive endpoints (auth tokens, payments) that must never appear in
+   *     an in-app inspector even on internal builds.
+   *
+   * The list is a developer/source-controlled config and is **not** persisted
+   * to AsyncStorage — it always reflects the value passed in props.
+   *
+   * @example
+   * ```tsx
+   * <NetworkLogger
+   *   blacklist={[
+   *     { urlPattern: '/analytics/' },
+   *     { urlPattern: '/auth/token', matchType: 'contains', method: 'POST' },
+   *     { urlPattern: '\\.(png|jpg|gif)(\\?|$)', matchType: 'regex' },
+   *   ]}
+   * >
+   * ```
+   */
+  blacklist?: BlacklistRule[];
 }
 
 export const NetworkLoggerProvider = ({
   children,
   maxEntries = 200,
+  enableConsoleCapture = true,
   initialMocks,
+  blacklist,
 }: NetworkLoggerProviderProps) => {
+  const initialPresetMocks = useMemo(
+    () => presetsToMocks(initialMocks ?? []),
+    [initialMocks],
+  );
+
+  // Normalize the blacklist once per identity change. The interceptors read
+  // this through a ref, so reference stability matters less than predictable
+  // shape — we always hand them an array (never `undefined`) and we drop any
+  // entry that lacks a usable string `urlPattern` (guards against malformed
+  // input from untyped JS consumers).
+  const normalizedBlacklist = useMemo<BlacklistRule[]>(
+    () =>
+      Array.isArray(blacklist)
+        ? blacklist.filter(
+            (r): r is BlacklistRule =>
+              !!r &&
+              typeof r === 'object' &&
+              typeof (r as BlacklistRule).urlPattern === 'string' &&
+              (r as BlacklistRule).urlPattern.length > 0,
+          )
+        : [],
+    [blacklist],
+  );
+
   // Lazy initializer: presetsToMocks() runs only once on mount, not on every render.
   const [state, dispatch] = useReducer(
     reducer,
-    { initialMocks, maxEntries },
-    ({ initialMocks: im, maxEntries: me }) => ({
+    { initialPresetMocks, maxEntries },
+    ({ initialPresetMocks: ipm, maxEntries: me }) => ({
       ...initialState,
       maxEntries: me,
-      mocks: presetsToMocks(im ?? []),
+      mocks: ipm,
     }),
   );
+
+  const hasRestoredMocksRef = useRef(false);
+  // Always holds the latest mocks so persistMocks can be a stable ref.
+  const mocksRef = useRef(state.mocks);
+  useEffect(() => { mocksRef.current = state.mocks; });
+
+  const persistMocks = useCallback(async () => {
+    await AsyncStorage.setItem(MOCKS_STORAGE_KEY, JSON.stringify(mocksRef.current));
+  }, []); // stable — reads from ref, never needs to change
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreMocks = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(MOCKS_STORAGE_KEY);
+        if (!stored || !isMounted) {
+          hasRestoredMocksRef.current = true;
+          return;
+        }
+
+        const parsed = JSON.parse(stored) as unknown;
+        if (!Array.isArray(parsed)) {
+          hasRestoredMocksRef.current = true;
+          return;
+        }
+
+        // Keep valid records even if storage contains a partially corrupted item.
+        // This avoids dropping all saved mocks because of one bad entry.
+        const validSavedMocks = parsed.filter(isNetworkMock);
+
+        dispatch({
+          type: 'HYDRATE_MOCKS',
+          payload: mergeMocks(initialPresetMocks, validSavedMocks),
+        });
+      } catch {
+        // Ignore persistence failures and continue with in-memory mocks.
+      } finally {
+        if (isMounted) {
+          hasRestoredMocksRef.current = true;
+        }
+      }
+    };
+
+    restoreMocks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialPresetMocks]);
+
+  useEffect(() => {
+    if (!hasRestoredMocksRef.current) return;
+
+    persistMocks().catch(() => {
+      // Ignore persistence failures and keep the logger usable.
+    });
+  }, [state.mocks, persistMocks]);
+
+  useEffect(() => {
+    if (!enableConsoleCapture) return;
+
+    return subscribeToConsoleEntries((entry) => {
+      dispatch({ type: 'ADD_CONSOLE_ENTRY', payload: entry });
+    });
+  }, [dispatch, enableConsoleCapture]);
 
   const value = useMemo<NetworkLoggerContextValue>(() => {
     const selectedEntry = state.selectedEntryId
@@ -178,15 +366,19 @@ export const NetworkLoggerProvider = ({
 
     return {
       entries: state.entries,
+      consoleEntries: state.consoleEntries,
       mocks: state.mocks,
+      consoleCaptureEnabled: enableConsoleCapture,
       activeMocks,
+      blacklist: normalizedBlacklist,
       isVisible: state.isVisible,
       isFabVisible: state.isFabVisible,
       maxEntries: state.maxEntries,
       selectedEntry,
+      persistMocks,
       dispatch,
     };
-  }, [state, dispatch]);
+  }, [state, dispatch, persistMocks, enableConsoleCapture, normalizedBlacklist]);
 
   return (
     <NetworkLoggerContext.Provider value={value}>

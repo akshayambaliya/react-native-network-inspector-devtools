@@ -11,10 +11,12 @@ import type {
   NetworkLogEntry,
   NetworkLoggerAction,
   NetworkMock,
+  BlacklistRule,
 } from "../types";
+import { isBlacklisted } from "./blacklistMatcher";
 import { withDashboardDevice } from "./dashboardDevice";
+import { pickMock } from "./mockMatcher";
 
-/** Monotonic counter — no collision risk, no custom header injected into real requests. */
 let _reqCounter = 0;
 const nextId = (): string => (++_reqCounter).toString(36);
 
@@ -41,16 +43,15 @@ const sendDashboardLog = (
   entry: NetworkLogEntry,
 ) => {
   const dashboardUrl = dashboardUrlRef?.current;
-  if (!dashboardUrl || typeof fetch !== 'function') return;
+  if (!dashboardUrl || typeof fetch !== "function") return;
 
   fetch(withDashboardDevice(dashboardUrl), {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    method: "POST",
+    headers: { "content-type": "application/json" },
     body: JSON.stringify(entry),
   }).catch(() => {});
 };
 
-/** Resolves the full URL from an axios config, combining baseURL and url. */
 const resolveUrl = (config: InternalAxiosRequestConfig): string => {
   const base = config.baseURL ?? "";
   const path = config.url ?? "";
@@ -58,83 +59,26 @@ const resolveUrl = (config: InternalAxiosRequestConfig): string => {
   return `${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
 };
 
-/**
- * Returns a **specificity score** when `url` matches `mock`, or `null` when it does not.
- *
- * Score = (matchTypeWeight × 1_000_000) + urlPattern.length
- *
- * Match-type weights:
- *   `exact`    → 3  — always beats regex and contains
- *   `regex`    → 2  — always beats contains
- *   `contains` → 1  — broadest, least specific
- *
- * Within the same match type, a longer pattern has a higher score because it
- * constrains the URL more tightly (e.g. `/payments/[^/]+/execution` is more
- * specific than `/payments`).
- *
- * This prevents a short `contains` pattern such as `/payments` from shadowing a
- * longer regex such as `/payments/[^/]+/execution` that is clearly a better fit.
- */
-const urlMatchScore = (url: string, mock: NetworkMock): number | null => {
-  const pattern = mock.urlPattern ?? "";
-  switch (mock.matchType) {
-    case "exact":
-      if (url.toLowerCase() !== pattern.toLowerCase()) return null;
-      return 3_000_000 + pattern.length;
-    case "regex": {
-      try {
-        if (!new RegExp(pattern).test(url)) return null;
-        return 2_000_000 + pattern.length;
-      } catch {
-        // Invalid regex — treat as no match rather than crashing.
-        return null;
-      }
-    }
-    case "contains":
-    default:
-      if (!url.toLowerCase().includes(pattern.toLowerCase())) return null;
-      return 1_000_000 + pattern.length;
-  }
-};
-
-/**
- * Among `candidates` that are enabled and match `url`+`method`, returns the one
- * with the highest specificity score. Ties are broken by array order (first wins).
- */
-const findBestMock = (
-  candidates: NetworkMock[],
-  url: string,
-  method: string,
-): NetworkMock | undefined => {
-  let best: NetworkMock | undefined;
-  let bestScore = -1;
-  for (const mock of candidates) {
-    if (mock.method !== method) continue;
-    const score = urlMatchScore(url, mock);
-    if (score !== null && score > bestScore) {
-      bestScore = score;
-      best = mock;
-    }
-  }
-  return best;
-};
-
 export const installInterceptors = (
   axiosInstance: AxiosInstance,
   dispatchRef: { current: Dispatch<NetworkLoggerAction> },
   activeMocksRef: { current: NetworkMock[] },
   dashboardUrlRef?: { current?: string },
+  blacklistRef?: { current: BlacklistRule[] },
 ): (() => void) => {
-  /** Correlates a config object to its log entry without injecting custom headers. */
   const reqMeta = new Map<object, NetworkLogEntry>();
 
   const reqId = axiosInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+      const requestUrl = resolveUrl(config);
+      const requestMethod = (config.method ?? "GET").toUpperCase();
+
+      if (isBlacklisted(blacklistRef?.current, requestUrl, requestMethod)) {
+        return config;
+      }
+
       const id = nextId();
       const startTime = Date.now();
-
-      const requestUrl = resolveUrl(config);
-      const requestMethod = (config.method ?? "").toUpperCase();
 
       const entry: NetworkLogEntry = {
         id,
@@ -148,22 +92,14 @@ export const installInterceptors = (
       };
 
       reqMeta.set(config, entry);
-
       dispatchRef.current({ type: "ADD_ENTRY", payload: entry });
       sendDashboardLog(dashboardUrlRef, entry);
 
-      // Split active mocks by source so each tier is searched independently.
-      // Within each tier the highest-specificity match wins (not first-array-order).
-      // User mocks are tried first; presets serve as fallback.
-      const userMocks = activeMocksRef.current.filter(
-        (m) => m.source !== "preset",
+      const matchedMock = pickMock(
+        activeMocksRef.current,
+        requestUrl,
+        requestMethod,
       );
-      const presetMocks = activeMocksRef.current.filter(
-        (m) => m.source === "preset",
-      );
-      const matchedMock =
-        findBestMock(userMocks, requestUrl, requestMethod) ??
-        findBestMock(presetMocks, requestUrl, requestMethod);
 
       if (matchedMock) {
         const patch: Partial<NetworkLogEntry> = { isMocked: true };
@@ -173,6 +109,7 @@ export const installInterceptors = (
         });
         reqMeta.set(config, { ...entry, ...patch });
         sendDashboardLog(dashboardUrlRef, { ...entry, ...patch });
+
         config.adapter = async () => {
           const rawBody = matchedMock.responseBody ?? "";
           let parsedBody: unknown;
@@ -182,7 +119,6 @@ export const installInterceptors = (
             parsedBody = rawBody;
           }
 
-          // Honour per-variant (or per-mock) delay before resolving.
           const delayMs = matchedMock.delay ?? 0;
           if (delayMs > 0) {
             await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
@@ -197,13 +133,6 @@ export const installInterceptors = (
             request: {},
           };
 
-          // Axios's built-in adapters (XHR/HTTP) call validateStatus to decide
-          // whether to resolve or reject. Custom adapters bypass this check, so
-          // we must enforce it manually — otherwise 4xx/5xx mocks always resolve
-          // and the caller's catch block never fires.
-          //
-          // validateStatus defaults to: status >= 200 && status < 300
-          // It can be overridden per-request or at the axios instance level.
           const validateStatus =
             config.validateStatus ?? ((s: number) => s >= 200 && s < 300);
 

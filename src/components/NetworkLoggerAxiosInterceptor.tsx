@@ -3,7 +3,7 @@ import { useEffect, useRef, type Dispatch } from 'react';
 import type { AxiosInstance } from 'axios';
 
 import { useNetworkLogger } from '../context/NetworkLoggerContext';
-import type { NetworkLoggerAction, NetworkMock } from '../types';
+import type { NetworkLoggerAction, NetworkMock, BlacklistRule } from '../types';
 import { installInterceptors } from '../utils/interceptor';
 
 interface Props {
@@ -12,10 +12,11 @@ interface Props {
 }
 
 export const NetworkLoggerAxiosInterceptor = ({ instance, dashboardUrl }: Props) => {
-  const { dispatch, activeMocks } = useNetworkLogger();
+  const { dispatch, activeMocks, blacklist } = useNetworkLogger();
 
   const dispatchRef = useRef<Dispatch<NetworkLoggerAction>>(dispatch);
   const activeMocksRef = useRef<NetworkMock[]>(activeMocks);
+  const blacklistRef = useRef<BlacklistRule[]>(blacklist);
   const instanceRef = useRef<AxiosInstance>(instance);
   const dashboardUrlRef = useRef<string | undefined>(dashboardUrl);
 
@@ -28,6 +29,10 @@ export const NetworkLoggerAxiosInterceptor = ({ instance, dashboardUrl }: Props)
   }, [activeMocks]);
 
   useEffect(() => {
+    blacklistRef.current = blacklist;
+  }, [blacklist]);
+
+  useEffect(() => {
     instanceRef.current = instance;
   }, [instance]);
 
@@ -36,7 +41,13 @@ export const NetworkLoggerAxiosInterceptor = ({ instance, dashboardUrl }: Props)
   }, [dashboardUrl]);
 
   useEffect(() => {
-    return installInterceptors(instanceRef.current, dispatchRef, activeMocksRef, dashboardUrlRef);
+    return installInterceptors(
+      instanceRef.current,
+      dispatchRef,
+      activeMocksRef,
+      dashboardUrlRef,
+      blacklistRef,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- install once on mount only
   }, []);
 

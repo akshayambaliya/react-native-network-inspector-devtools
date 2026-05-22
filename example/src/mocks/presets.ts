@@ -284,4 +284,74 @@ export const DEMO_PRESETS: MockPreset[] = [
       },
     ],
   },
+
+  // ─── Fetch: Products GET — proves mocks apply to fetch too ───────────────
+  {
+    urlPattern: "dummyjson.com/products",
+    method: "GET",
+    matchType: "contains",
+    status: 200,
+    responseBody: JSON.stringify({
+      total: 2,
+      products: [
+        {
+          id: 1,
+          title: "Mocked Phone (via fetch)",
+          price: 549,
+          description: "Returned by the fetch interceptor mock.",
+        },
+        {
+          id: 2,
+          title: "Mocked Laptop (via fetch)",
+          price: 1299,
+          description: "No network call was made.",
+        },
+      ],
+    }),
+    responseHeaders: { "x-mock-source": "fetch-preset" },
+    variants: [
+      {
+        name: "Empty Catalog",
+        status: 200,
+        responseBody: JSON.stringify({ total: 0, products: [] }),
+      },
+      {
+        name: "Server Error 500",
+        status: 500,
+        responseBody: JSON.stringify({ error: "Catalog service down" }),
+      },
+      {
+        name: "Slow Response (3s)",
+        status: 200,
+        responseBody: JSON.stringify({
+          total: 1,
+          products: [{ id: 1, title: "Slow Product", price: 1 }],
+        }),
+        delay: 3000,
+      },
+    ],
+  },
+
+  // ─── Fetch: POST create — exact-match fetch mock ─────────────────────────
+  {
+    urlPattern: "https://dummyjson.com/products/add",
+    method: "POST",
+    matchType: "exact",
+    status: 201,
+    responseBody: JSON.stringify({
+      id: 999,
+      title: "Fetch Demo Product (mocked)",
+      price: 99,
+    }),
+    variants: [
+      {
+        name: "Validation Error",
+        status: 422,
+        responseBody: JSON.stringify({
+          error: "Unprocessable Entity",
+          fields: { title: "Title is required" },
+        }),
+      },
+    ],
+  },
 ];
