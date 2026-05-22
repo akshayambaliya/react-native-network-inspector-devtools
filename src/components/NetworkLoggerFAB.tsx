@@ -179,7 +179,6 @@ export const NetworkLoggerFAB = ({
   const theme = useTheme();
 
   const hasActiveMocks = mocks.some((m) => m.enabled);
-  if (!isFabVisible) return null;
 
   // Compute initial top/left once; subsequent renders must not re-evaluate
   // because PanResponder and Animated.ValueXY are initialised from this.
@@ -247,6 +246,8 @@ export const NetworkLoggerFAB = ({
 
   const count = entries.length;
   const badge = count > 99 ? "99+" : String(count);
+
+  if (!isFabVisible) return null;
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">
