@@ -8,15 +8,17 @@ import { installInterceptors } from '../utils/interceptor';
 
 interface Props {
   instance: AxiosInstance;
+  dashboardUrl?: string;
 }
 
-export const NetworkLoggerAxiosInterceptor = ({ instance }: Props) => {
+export const NetworkLoggerAxiosInterceptor = ({ instance, dashboardUrl }: Props) => {
   const { dispatch, activeMocks, blacklist } = useNetworkLogger();
 
   const dispatchRef = useRef<Dispatch<NetworkLoggerAction>>(dispatch);
   const activeMocksRef = useRef<NetworkMock[]>(activeMocks);
   const blacklistRef = useRef<BlacklistRule[]>(blacklist);
   const instanceRef = useRef<AxiosInstance>(instance);
+  const dashboardUrlRef = useRef<string | undefined>(dashboardUrl);
 
   useEffect(() => {
     dispatchRef.current = dispatch;
@@ -35,10 +37,15 @@ export const NetworkLoggerAxiosInterceptor = ({ instance }: Props) => {
   }, [instance]);
 
   useEffect(() => {
+    dashboardUrlRef.current = dashboardUrl;
+  }, [dashboardUrl]);
+
+  useEffect(() => {
     return installInterceptors(
       instanceRef.current,
       dispatchRef,
       activeMocksRef,
+      dashboardUrlRef,
       blacklistRef,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- install once on mount only

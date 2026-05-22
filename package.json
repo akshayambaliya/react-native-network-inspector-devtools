@@ -24,10 +24,15 @@
       "types": "./lib/typescript/src/index.d.ts"
     }
   },
+  "bin": {
+    "network-inspector-dashboard": "./scripts/network-inspector-dashboard.mjs",
+    "network-inspector-mcp": "./scripts/network-inspector-mcp.mjs"
+  },
   "sideEffects": false,
   "files": [
     "src",
     "lib",
+    "scripts",
     "LICENSE"
   ],
   "engines": {

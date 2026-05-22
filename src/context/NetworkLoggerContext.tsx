@@ -177,6 +177,7 @@ export interface NetworkLoggerContextValue {
    */
   blacklist: BlacklistRule[];
   isVisible: boolean;
+  isFabVisible: boolean;
   maxEntries: number;
   /** The currently selected log entry, or `null` if none selected. */
   selectedEntry: NetworkLogEntry | null;
@@ -371,6 +372,7 @@ export const NetworkLoggerProvider = ({
       activeMocks,
       blacklist: normalizedBlacklist,
       isVisible: state.isVisible,
+      isFabVisible: state.isFabVisible,
       maxEntries: state.maxEntries,
       selectedEntry,
       persistMocks,

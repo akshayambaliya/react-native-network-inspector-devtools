@@ -5,6 +5,7 @@ import {
   type NetworkLoggerProviderProps,
 } from "../context/NetworkLoggerContext";
 import { NetworkLoggerAxiosInterceptor } from "./NetworkLoggerAxiosInterceptor";
+import { NetworkLoggerDashboardSync } from "./NetworkLoggerDashboardSync";
 import { NetworkLoggerFAB } from "./NetworkLoggerFAB";
 import { NetworkLoggerFetchInterceptor } from "./NetworkLoggerFetchInterceptor";
 import { NetworkLoggerPanel } from "./NetworkLoggerPanel";
@@ -29,6 +30,8 @@ export interface NetworkLoggerProps extends NetworkLoggerProviderProps {
    * ```
    */
   enabled?: boolean;
+  /** Optional collector endpoint that receives every log update as JSON. */
+  dashboardUrl?: string;
   /**
    * Intercept the global `fetch` (in addition to any provided axios instances).
    * **Defaults to `true`** — every `fetch(...)` call (including ones made by
@@ -57,41 +60,18 @@ export interface NetworkLoggerProps extends NetworkLoggerProviderProps {
     top?: number;
     left?: number;
   };
-  // initialMocks is inherited from NetworkLoggerProviderProps and forwarded to
-  // NetworkLoggerProvider via the ...providerProps spread — no extra wiring needed.
 }
 
-/**
- * All-in-one setup component.  Replaces the four-step manual setup with a
- * single wrapper around your app root.
- *
- * @example
- * ```tsx
- * import { NetworkLogger } from 'rn-network-logger';
- * import { apiClient } from './api';
- *
- * export default function App() {
- *   return (
- *     <NetworkLogger
- *       enabled={__DEV__}
- *       instance={apiClient}
- *     >
- *       <RootNavigator />
- *     </NetworkLogger>
- *   );
- * }
- * ```
- */
 export const NetworkLogger = ({
   instance,
   instances,
   enabled = true,
+  dashboardUrl,
   enableFetch = true,
   fabPosition,
   children,
   ...providerProps
 }: NetworkLoggerProps) => {
-  // When disabled, render children with zero overhead.
   if (!enabled) {
     return <>{children}</>;
   }
@@ -104,8 +84,13 @@ export const NetworkLogger = ({
   return (
     <NetworkLoggerProvider {...providerProps}>
       {allInstances.map((inst, i) => (
-        <NetworkLoggerAxiosInterceptor key={i} instance={inst} />
+        <NetworkLoggerAxiosInterceptor
+          key={i}
+          instance={inst}
+          dashboardUrl={dashboardUrl}
+        />
       ))}
+      <NetworkLoggerDashboardSync dashboardUrl={dashboardUrl} />
       {enableFetch && <NetworkLoggerFetchInterceptor />}
       {children}
       <NetworkLoggerFAB position={fabPosition} />

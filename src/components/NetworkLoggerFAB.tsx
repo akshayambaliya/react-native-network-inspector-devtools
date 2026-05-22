@@ -175,7 +175,7 @@ export const NetworkLoggerFAB = ({
   draggable = true,
   showMockIndicator = true,
 }: Props = {}) => {
-  const { entries, mocks, dispatch } = useNetworkLogger();
+  const { entries, mocks, isFabVisible, dispatch } = useNetworkLogger();
   const theme = useTheme();
 
   const hasActiveMocks = mocks.some((m) => m.enabled);
@@ -246,6 +246,8 @@ export const NetworkLoggerFAB = ({
 
   const count = entries.length;
   const badge = count > 99 ? "99+" : String(count);
+
+  if (!isFabVisible) return null;
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">

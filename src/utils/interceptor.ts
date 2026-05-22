@@ -13,10 +13,10 @@ import type {
   NetworkMock,
   BlacklistRule,
 } from "../types";
-import { pickMock } from "./mockMatcher";
 import { isBlacklisted } from "./blacklistMatcher";
+import { withDashboardDevice } from "./dashboardDevice";
+import { pickMock } from "./mockMatcher";
 
-/** Monotonic counter — no collision risk, no custom header injected into real requests. */
 let _reqCounter = 0;
 const nextId = (): string => (++_reqCounter).toString(36);
 
@@ -38,7 +38,20 @@ const headersToRecord = (headers: unknown): Record<string, string> => {
   return result;
 };
 
-/** Resolves the full URL from an axios config, combining baseURL and url. */
+const sendDashboardLog = (
+  dashboardUrlRef: { current?: string } | undefined,
+  entry: NetworkLogEntry,
+) => {
+  const dashboardUrl = dashboardUrlRef?.current;
+  if (!dashboardUrl || typeof fetch !== "function") return;
+
+  fetch(withDashboardDevice(dashboardUrl), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(entry),
+  }).catch(() => {});
+};
+
 const resolveUrl = (config: InternalAxiosRequestConfig): string => {
   const base = config.baseURL ?? "";
   const path = config.url ?? "";
@@ -50,27 +63,22 @@ export const installInterceptors = (
   axiosInstance: AxiosInstance,
   dispatchRef: { current: Dispatch<NetworkLoggerAction> },
   activeMocksRef: { current: NetworkMock[] },
+  dashboardUrlRef?: { current?: string },
   blacklistRef?: { current: BlacklistRule[] },
 ): (() => void) => {
-  /** Correlates a config object → { id, startTime } without injecting custom headers. */
-  const reqMeta = new Map<object, { id: string; startTime: number }>();
+  const reqMeta = new Map<object, NetworkLogEntry>();
 
   const reqId = axiosInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
       const requestUrl = resolveUrl(config);
       const requestMethod = (config.method ?? "GET").toUpperCase();
 
-      // Blacklist short-circuit — drop before logging or mock matching.
-      // The response interceptor's reqMeta lookup will miss naturally,
-      // so this single check is sufficient to make the request invisible.
       if (isBlacklisted(blacklistRef?.current, requestUrl, requestMethod)) {
         return config;
       }
 
       const id = nextId();
       const startTime = Date.now();
-
-      reqMeta.set(config, { id, startTime });
 
       const entry: NetworkLogEntry = {
         id,
@@ -83,11 +91,10 @@ export const installInterceptors = (
         isMocked: false,
       };
 
+      reqMeta.set(config, entry);
       dispatchRef.current({ type: "ADD_ENTRY", payload: entry });
+      sendDashboardLog(dashboardUrlRef, entry);
 
-      // Split active mocks by source so each tier is searched independently.
-      // Within each tier the highest-specificity match wins (not first-array-order).
-      // User mocks are tried first; presets serve as fallback.
       const matchedMock = pickMock(
         activeMocksRef.current,
         requestUrl,
@@ -95,10 +102,14 @@ export const installInterceptors = (
       );
 
       if (matchedMock) {
+        const patch: Partial<NetworkLogEntry> = { isMocked: true };
         dispatchRef.current({
           type: "UPDATE_ENTRY",
-          payload: { id, patch: { isMocked: true } },
+          payload: { id, patch },
         });
+        reqMeta.set(config, { ...entry, ...patch });
+        sendDashboardLog(dashboardUrlRef, { ...entry, ...patch });
+
         config.adapter = async () => {
           const rawBody = matchedMock.responseBody ?? "";
           let parsedBody: unknown;
@@ -108,7 +119,6 @@ export const installInterceptors = (
             parsedBody = rawBody;
           }
 
-          // Honour per-variant (or per-mock) delay before resolving.
           const delayMs = matchedMock.delay ?? 0;
           if (delayMs > 0) {
             await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
@@ -123,13 +133,6 @@ export const installInterceptors = (
             request: {},
           };
 
-          // Axios's built-in adapters (XHR/HTTP) call validateStatus to decide
-          // whether to resolve or reject. Custom adapters bypass this check, so
-          // we must enforce it manually — otherwise 4xx/5xx mocks always resolve
-          // and the caller's catch block never fires.
-          //
-          // validateStatus defaults to: status >= 200 && status < 300
-          // It can be overridden per-request or at the axios instance level.
           const validateStatus =
             config.validateStatus ?? ((s: number) => s >= 200 && s < 300);
 
@@ -159,20 +162,19 @@ export const installInterceptors = (
         const { id, startTime } = meta;
         reqMeta.delete(response.config);
         const endTime = Date.now();
+        const patch: Partial<NetworkLogEntry> = {
+          status: response.status,
+          responseHeaders: headersToRecord(response.headers),
+          responseBody: safeStringify(response.data),
+          endTime,
+          duration: endTime - startTime,
+          state: "done",
+        };
         dispatchRef.current({
           type: "UPDATE_ENTRY",
-          payload: {
-            id,
-            patch: {
-              status: response.status,
-              responseHeaders: headersToRecord(response.headers),
-              responseBody: safeStringify(response.data),
-              endTime,
-              duration: endTime - startTime,
-              state: "done",
-            },
-          },
+          payload: { id, patch },
         });
+        sendDashboardLog(dashboardUrlRef, { ...meta, ...patch });
       }
       return response;
     },
@@ -182,27 +184,23 @@ export const installInterceptors = (
         const { id, startTime } = meta;
         if (error.config) reqMeta.delete(error.config);
         const endTime = Date.now();
+        const patch: Partial<NetworkLogEntry> = {
+          status: error.response?.status,
+          responseHeaders: error.response
+            ? headersToRecord(error.response.headers)
+            : undefined,
+          responseBody: error.response
+            ? safeStringify(error.response.data)
+            : error.message,
+          endTime,
+          duration: endTime - startTime,
+          state: "error",
+        };
         dispatchRef.current({
           type: "UPDATE_ENTRY",
-          payload: {
-            id,
-            patch: {
-              status: error.response?.status,
-              responseHeaders: error.response
-                ? headersToRecord(error.response.headers)
-                : undefined,
-              // Prefer the actual server response body; fall back to the
-              // axios error message only when there is no response at all
-              // (e.g. network timeout, DNS failure, CORS block).
-              responseBody: error.response
-                ? safeStringify(error.response.data)
-                : error.message,
-              endTime,
-              duration: endTime - startTime,
-              state: "error",
-            },
-          },
+          payload: { id, patch },
         });
+        sendDashboardLog(dashboardUrlRef, { ...meta, ...patch });
       }
       throw error;
     },
