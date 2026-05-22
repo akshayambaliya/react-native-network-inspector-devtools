@@ -28,6 +28,8 @@ export default function App() {
       initialMocks={DEMO_PRESETS}
       // Always enabled in this demo; in a real app: enabled={__DEV__}
       enabled
+      // Relay logs to the dev dashboard at http://localhost:8765
+      dashboardUrl="http://localhost:8765/logs"
       // FAB sits just above the home-indicator area
       fabPosition={{ bottom: 40, right: 20 }}
     >

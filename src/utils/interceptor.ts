@@ -12,6 +12,7 @@ import type {
   NetworkLoggerAction,
   NetworkMock,
 } from "../types";
+import { withDashboardDevice } from "./dashboardDevice";
 
 /** Monotonic counter — no collision risk, no custom header injected into real requests. */
 let _reqCounter = 0;
@@ -33,6 +34,20 @@ const headersToRecord = (headers: unknown): Record<string, string> => {
     if (typeof val === "string") result[key] = val;
   }
   return result;
+};
+
+const sendDashboardLog = (
+  dashboardUrlRef: { current?: string } | undefined,
+  entry: NetworkLogEntry,
+) => {
+  const dashboardUrl = dashboardUrlRef?.current;
+  if (!dashboardUrl || typeof fetch !== 'function') return;
+
+  fetch(withDashboardDevice(dashboardUrl), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(entry),
+  }).catch(() => {});
 };
 
 /** Resolves the full URL from an axios config, combining baseURL and url. */
@@ -108,21 +123,23 @@ export const installInterceptors = (
   axiosInstance: AxiosInstance,
   dispatchRef: { current: Dispatch<NetworkLoggerAction> },
   activeMocksRef: { current: NetworkMock[] },
+  dashboardUrlRef?: { current?: string },
 ): (() => void) => {
-  /** Correlates a config object → { id, startTime } without injecting custom headers. */
-  const reqMeta = new Map<object, { id: string; startTime: number }>();
+  /** Correlates a config object to its log entry without injecting custom headers. */
+  const reqMeta = new Map<object, NetworkLogEntry>();
 
   const reqId = axiosInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
       const id = nextId();
       const startTime = Date.now();
 
-      reqMeta.set(config, { id, startTime });
+      const requestUrl = resolveUrl(config);
+      const requestMethod = (config.method ?? "").toUpperCase();
 
       const entry: NetworkLogEntry = {
         id,
-        url: resolveUrl(config),
-        method: (config.method ?? "GET").toUpperCase(),
+        url: requestUrl,
+        method: requestMethod,
         requestHeaders: headersToRecord(config.headers),
         requestBody: safeStringify(config.data),
         startTime,
@@ -130,10 +147,10 @@ export const installInterceptors = (
         isMocked: false,
       };
 
-      dispatchRef.current({ type: "ADD_ENTRY", payload: entry });
+      reqMeta.set(config, entry);
 
-      const requestUrl = resolveUrl(config);
-      const requestMethod = (config.method ?? "").toUpperCase();
+      dispatchRef.current({ type: "ADD_ENTRY", payload: entry });
+      sendDashboardLog(dashboardUrlRef, entry);
 
       // Split active mocks by source so each tier is searched independently.
       // Within each tier the highest-specificity match wins (not first-array-order).
@@ -149,10 +166,13 @@ export const installInterceptors = (
         findBestMock(presetMocks, requestUrl, requestMethod);
 
       if (matchedMock) {
+        const patch: Partial<NetworkLogEntry> = { isMocked: true };
         dispatchRef.current({
           type: "UPDATE_ENTRY",
-          payload: { id, patch: { isMocked: true } },
+          payload: { id, patch },
         });
+        reqMeta.set(config, { ...entry, ...patch });
+        sendDashboardLog(dashboardUrlRef, { ...entry, ...patch });
         config.adapter = async () => {
           const rawBody = matchedMock.responseBody ?? "";
           let parsedBody: unknown;
@@ -213,20 +233,19 @@ export const installInterceptors = (
         const { id, startTime } = meta;
         reqMeta.delete(response.config);
         const endTime = Date.now();
+        const patch: Partial<NetworkLogEntry> = {
+          status: response.status,
+          responseHeaders: headersToRecord(response.headers),
+          responseBody: safeStringify(response.data),
+          endTime,
+          duration: endTime - startTime,
+          state: "done",
+        };
         dispatchRef.current({
           type: "UPDATE_ENTRY",
-          payload: {
-            id,
-            patch: {
-              status: response.status,
-              responseHeaders: headersToRecord(response.headers),
-              responseBody: safeStringify(response.data),
-              endTime,
-              duration: endTime - startTime,
-              state: "done",
-            },
-          },
+          payload: { id, patch },
         });
+        sendDashboardLog(dashboardUrlRef, { ...meta, ...patch });
       }
       return response;
     },
@@ -236,27 +255,23 @@ export const installInterceptors = (
         const { id, startTime } = meta;
         if (error.config) reqMeta.delete(error.config);
         const endTime = Date.now();
+        const patch: Partial<NetworkLogEntry> = {
+          status: error.response?.status,
+          responseHeaders: error.response
+            ? headersToRecord(error.response.headers)
+            : undefined,
+          responseBody: error.response
+            ? safeStringify(error.response.data)
+            : error.message,
+          endTime,
+          duration: endTime - startTime,
+          state: "error",
+        };
         dispatchRef.current({
           type: "UPDATE_ENTRY",
-          payload: {
-            id,
-            patch: {
-              status: error.response?.status,
-              responseHeaders: error.response
-                ? headersToRecord(error.response.headers)
-                : undefined,
-              // Prefer the actual server response body; fall back to the
-              // axios error message only when there is no response at all
-              // (e.g. network timeout, DNS failure, CORS block).
-              responseBody: error.response
-                ? safeStringify(error.response.data)
-                : error.message,
-              endTime,
-              duration: endTime - startTime,
-              state: "error",
-            },
-          },
+          payload: { id, patch },
         });
+        sendDashboardLog(dashboardUrlRef, { ...meta, ...patch });
       }
       throw error;
     },

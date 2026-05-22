@@ -5,6 +5,7 @@ import {
   type NetworkLoggerProviderProps,
 } from "../context/NetworkLoggerContext";
 import { NetworkLoggerAxiosInterceptor } from "./NetworkLoggerAxiosInterceptor";
+import { NetworkLoggerDashboardSync } from "./NetworkLoggerDashboardSync";
 import { NetworkLoggerFAB } from "./NetworkLoggerFAB";
 import { NetworkLoggerPanel } from "./NetworkLoggerPanel";
 import type { AxiosInstance } from "axios";
@@ -28,6 +29,8 @@ export interface NetworkLoggerProps extends NetworkLoggerProviderProps {
    * ```
    */
   enabled?: boolean;
+  /** Optional collector endpoint that receives every log update as JSON. */
+  dashboardUrl?: string;
   /** Override the FAB's default position (bottom: 90, right: 16). */
   fabPosition?: {
     bottom?: number;
@@ -64,6 +67,7 @@ export const NetworkLogger = ({
   instance,
   instances,
   enabled = true,
+  dashboardUrl,
   fabPosition,
   children,
   ...providerProps
@@ -81,8 +85,9 @@ export const NetworkLogger = ({
   return (
     <NetworkLoggerProvider {...providerProps}>
       {allInstances.map((inst, i) => (
-        <NetworkLoggerAxiosInterceptor key={i} instance={inst} />
+        <NetworkLoggerAxiosInterceptor key={i} instance={inst} dashboardUrl={dashboardUrl} />
       ))}
+      <NetworkLoggerDashboardSync dashboardUrl={dashboardUrl} />
       {children}
       <NetworkLoggerFAB position={fabPosition} />
       <NetworkLoggerPanel />

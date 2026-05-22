@@ -175,10 +175,11 @@ export const NetworkLoggerFAB = ({
   draggable = true,
   showMockIndicator = true,
 }: Props = {}) => {
-  const { entries, mocks, dispatch } = useNetworkLogger();
+  const { entries, mocks, isFabVisible, dispatch } = useNetworkLogger();
   const theme = useTheme();
 
   const hasActiveMocks = mocks.some((m) => m.enabled);
+  if (!isFabVisible) return null;
 
   // Compute initial top/left once; subsequent renders must not re-evaluate
   // because PanResponder and Animated.ValueXY are initialised from this.

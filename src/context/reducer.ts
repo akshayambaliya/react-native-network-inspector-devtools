@@ -4,6 +4,7 @@ export const initialState: NetworkLoggerState = {
   entries: [],
   mocks: [],
   isVisible: false,
+  isFabVisible: true,
   selectedEntryId: null,
   maxEntries: 200,
 };
@@ -28,6 +29,8 @@ export function reducer(
       return { ...state, entries: [], selectedEntryId: null };
     case 'SET_VISIBLE':
       return { ...state, isVisible: action.payload };
+    case 'SET_FAB_VISIBLE':
+      return { ...state, isFabVisible: action.payload };
     case 'SET_SELECTED_ENTRY':
       return { ...state, selectedEntryId: action.payload };
     case 'ADD_MOCK': {

@@ -113,6 +113,7 @@ export interface NetworkLoggerContextValue {
   /** Mocks that are currently enabled and will intercept matching requests. */
   activeMocks: NetworkMock[];
   isVisible: boolean;
+  isFabVisible: boolean;
   maxEntries: number;
   /** The currently selected log entry, or `null` if none selected. */
   selectedEntry: NetworkLogEntry | null;
@@ -180,6 +181,7 @@ export const NetworkLoggerProvider = ({
       mocks: state.mocks,
       activeMocks,
       isVisible: state.isVisible,
+      isFabVisible: state.isFabVisible,
       maxEntries: state.maxEntries,
       selectedEntry,
       dispatch,

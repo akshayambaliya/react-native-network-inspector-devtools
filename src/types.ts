@@ -200,6 +200,7 @@ export interface NetworkLoggerState {
   entries: NetworkLogEntry[];
   mocks: NetworkMock[];
   isVisible: boolean;
+  isFabVisible: boolean;
   selectedEntryId: string | null;
   maxEntries: number;
 }
@@ -209,6 +210,7 @@ export type NetworkLoggerAction =
   | { type: 'UPDATE_ENTRY'; payload: { id: string; patch: Partial<NetworkLogEntry> } }
   | { type: 'CLEAR_ENTRIES' }
   | { type: 'SET_VISIBLE'; payload: boolean }
+  | { type: 'SET_FAB_VISIBLE'; payload: boolean }
   | { type: 'SET_SELECTED_ENTRY'; payload: string | null }
   | { type: 'ADD_MOCK'; payload: NetworkMock }
   | { type: 'REMOVE_MOCK'; payload: string }
