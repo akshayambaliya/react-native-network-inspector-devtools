@@ -145,6 +145,7 @@ export const NetworkLoggerPanel = () => {
         method: editingMock.method,
         status: String(editingMock.status ?? ''),
         responseBody: editingMock.responseBody,
+        responseHeaders: editingMock.responseHeaders,
         matchType: editingMock.matchType,
         // Pass delay so the editor field is pre-populated when editing an existing mock.
         delay: editingMock.delay,
@@ -229,12 +230,33 @@ export const NetworkLoggerPanel = () => {
   const userMockCount = mocks.filter((m) => m.source !== 'preset').length;
   const presetCount = mocks.filter((m) => m.source === 'preset').length;
 
+  // While closed, keep the Modal mounted but drop its (heavy) content tree so
+  // high-frequency network/console updates don't re-render lists nobody can see.
+  if (!isVisible) {
+    return (
+      <Modal
+        visible={false}
+        animationType="slide"
+        onRequestClose={handleClose}
+        presentationStyle="pageSheet"
+        supportedOrientations={['portrait', 'landscape']}
+      >
+        <View style={[styles.container, { backgroundColor: theme.background }]} />
+      </Modal>
+    );
+  }
+
   return (
     <Modal
       visible={isVisible}
       animationType="slide"
       onRequestClose={handleClose}
+      // iOS fires this after a swipe-down dismissal of the pageSheet. Without it
+      // `isVisible` stays true while the sheet is gone, so the FAB can no longer
+      // re-open the panel and the app looks frozen.
+      onDismiss={handleClose}
       presentationStyle="pageSheet"
+      supportedOrientations={['portrait', 'landscape']}
     >
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={[styles.header, { borderBottomColor: theme.border }]}>

@@ -31,9 +31,15 @@ export function reducer(
       const consoleEntries = [action.payload, ...state.consoleEntries];
       return { ...state, consoleEntries: consoleEntries.slice(0, state.maxEntries) };
     }
+    case 'ADD_CONSOLE_ENTRIES': {
+      if (action.payload.length === 0) return state;
+      const consoleEntries = [...action.payload, ...state.consoleEntries];
+      return { ...state, consoleEntries: consoleEntries.slice(0, state.maxEntries) };
+    }
     case 'CLEAR_CONSOLE_ENTRIES':
       return { ...state, consoleEntries: [] };
     case 'SET_VISIBLE':
+      if (state.isVisible === action.payload) return state;
       return { ...state, isVisible: action.payload };
     case 'SET_SELECTED_ENTRY':
       return { ...state, selectedEntryId: action.payload };
@@ -118,6 +124,15 @@ export function reducer(
             : m
         ),
       };
+    case 'SET_PRESET_SECTION_ENABLED':
+      return {
+        ...state,
+        mocks: state.mocks.map((m) =>
+          m.source === 'preset' && m.sectionKey === action.payload.sectionKey
+            ? { ...m, enabled: action.payload.enabled }
+            : m
+        ),
+      };
     case 'TOGGLE_MOCK_PIN':
       return {
         ...state,
@@ -138,8 +153,10 @@ export function reducer(
             activeVariantId: variantId,
             status: variant.status,
             responseBody: variant.responseBody,
-            // Only override headers when the variant explicitly sets them
-            ...(variant.responseHeaders != null && { responseHeaders: variant.responseHeaders }),
+            // Active variant is the source of truth for resolved headers.
+            // This also clears stale headers when switching to a variant
+            // that intentionally has no response headers.
+            responseHeaders: variant.responseHeaders,
             // Carry delay from the chosen variant (undefined means no delay)
             delay: variant.delay,
           };

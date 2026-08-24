@@ -193,6 +193,7 @@ export const LogDetailView = ({ entry, onBack, onMock }: Props) => {
       method: entry.method,
       status: entry.status !== undefined ? String(entry.status) : '200',
       responseBody: entry.responseBody ?? '{}',
+      responseHeaders: entry.responseHeaders,
     });
   };
 

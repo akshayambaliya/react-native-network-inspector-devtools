@@ -148,6 +148,10 @@ export interface NetworkMock {
    * group is preserved (insertion order).
    */
   pinned?: boolean;
+  /** Optional section key when this preset came from a grouped `initialMocks` section. */
+  sectionKey?: string;
+  /** Section title shown in the Presets tab when grouped presets are used. */
+  sectionTitle?: string;
 }
 
 /**
@@ -262,6 +266,53 @@ export interface MockPreset {
   defaultVariant?: string;
 }
 
+/**
+ * A named group of preset mocks.
+ *
+ * Use this when your app's API surface is organised by feature and you want
+ * the Presets tab to render grouped sections with a single toggle per feature.
+ * Flat `MockPreset[]` input continues to work unchanged.
+ *
+ * @example
+ * ```tsx
+ * const initialMocks: MockPresetSection[] = [
+ *   {
+ *     title: 'Auth',
+ *     mocks: [
+ *       {
+ *         urlPattern: '/api/login',
+ *         method: 'POST',
+ *         status: 200,
+ *         responseBody: JSON.stringify({ token: 'demo-token' }),
+ *       },
+ *     ],
+ *   },
+ *   {
+ *     title: 'Orders',
+ *     mocks: [
+ *       {
+ *         urlPattern: '/api/orders',
+ *         method: 'GET',
+ *         status: 200,
+ *         responseBody: JSON.stringify([]),
+ *       },
+ *     ],
+ *   },
+ * ];
+ * ```
+ */
+export interface MockPresetSection {
+  /** Section title shown in the Presets tab. */
+  title: string;
+  /** Optional stable key used for section-level toggle state and grouping. */
+  key?: string;
+  /** Preset mocks that belong to this section. */
+  mocks: MockPreset[];
+}
+
+/** Accepted shapes for the `initialMocks` prop. */
+export type InitialMockDefinitions = ReadonlyArray<MockPreset | MockPresetSection>;
+
 export interface NetworkLoggerState {
   entries: NetworkLogEntry[];
   consoleEntries: ConsoleEntry[];
@@ -276,6 +327,7 @@ export type NetworkLoggerAction =
   | { type: 'UPDATE_ENTRY'; payload: { id: string; patch: Partial<NetworkLogEntry> } }
   | { type: 'CLEAR_ENTRIES' }
   | { type: 'ADD_CONSOLE_ENTRY'; payload: ConsoleEntry }
+  | { type: 'ADD_CONSOLE_ENTRIES'; payload: ConsoleEntry[] }
   | { type: 'CLEAR_CONSOLE_ENTRIES' }
   | { type: 'SET_VISIBLE'; payload: boolean }
   | { type: 'SET_SELECTED_ENTRY'; payload: string | null }
@@ -285,5 +337,6 @@ export type NetworkLoggerAction =
   | { type: 'REMOVE_MOCK'; payload: string }
   | { type: 'TOGGLE_MOCK'; payload: string }
   | { type: 'SET_SOURCE_MOCKS_ENABLED'; payload: { source: 'preset' | 'user'; enabled: boolean } }
+  | { type: 'SET_PRESET_SECTION_ENABLED'; payload: { sectionKey: string; enabled: boolean } }
   | { type: 'TOGGLE_MOCK_PIN'; payload: string }
   | { type: 'SET_MOCK_VARIANT'; payload: { mockId: string; variantId: string } };

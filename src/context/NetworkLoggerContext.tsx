@@ -12,7 +12,9 @@ import React, {
 
 import type {
   ConsoleEntry,
+  InitialMockDefinitions,
   MockPreset,
+  MockPresetSection,
   MockVariant,
   NetworkLogEntry,
   NetworkLoggerAction,
@@ -43,7 +45,9 @@ function mergeMocks(presetMocks: NetworkMock[], savedMocks: NetworkMock[]) {
       activeVariantId: activeVariant?.id ?? preset.activeVariantId,
       status: activeVariant?.status ?? preset.status,
       responseBody: activeVariant?.responseBody ?? preset.responseBody,
-      responseHeaders: activeVariant?.responseHeaders ?? preset.responseHeaders,
+      responseHeaders: activeVariant
+        ? activeVariant.responseHeaders
+        : preset.responseHeaders,
       delay: activeVariant?.delay ?? preset.delay,
     };
   });
@@ -70,21 +74,63 @@ function isNetworkMock(value: unknown): value is NetworkMock {
   );
 }
 
+interface NormalizedPresetDefinition {
+  preset: MockPreset;
+  sectionKey?: string;
+  sectionTitle?: string;
+}
+
+function isMockPresetSection(value: MockPreset | MockPresetSection): value is MockPresetSection {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as MockPresetSection).title === 'string' &&
+    Array.isArray((value as MockPresetSection).mocks)
+  );
+}
+
+function normalizeInitialMocks(initialMocks: InitialMockDefinitions | undefined): NormalizedPresetDefinition[] {
+  if (!Array.isArray(initialMocks)) return [];
+
+  const normalized: NormalizedPresetDefinition[] = [];
+
+  for (const entry of initialMocks) {
+    if (isMockPresetSection(entry)) {
+      const sectionTitle = entry.title.trim();
+      const sectionKey = (entry.key ?? sectionTitle).trim();
+
+      for (const preset of entry.mocks) {
+        normalized.push({
+          preset,
+          sectionKey: sectionKey || undefined,
+          sectionTitle: sectionTitle || undefined,
+        });
+      }
+      continue;
+    }
+
+    normalized.push({ preset: entry });
+  }
+
+  return normalized;
+}
+
 /**
  * Converts developer-provided MockPreset definitions to internal NetworkMock records.
  * - Generates a deterministic ID from method + urlPattern so the same preset always
  *   gets the same ID across renders.
  * - Last definition wins when two presets share the same method + urlPattern.
  */
-function presetsToMocks(presets: MockPreset[]): NetworkMock[] {
+function presetsToMocks(presets: NormalizedPresetDefinition[]): NetworkMock[] {
   // Deduplicate: last entry for a given method+urlPattern wins.
-  const seen = new Map<string, MockPreset>();
-  for (const p of presets) {
+  const seen = new Map<string, NormalizedPresetDefinition>();
+  for (const entry of presets) {
+    const p = entry.preset;
     // Guard against callers passing malformed preset objects (e.g. from JS)
     if (!p || !p.urlPattern || !p.method) continue;
-    seen.set(`${p.method.toUpperCase()}||${p.urlPattern}`, p);
+    seen.set(`${p.method.toUpperCase()}||${p.urlPattern}`, entry);
   }
-  return Array.from(seen.values()).map((p) => {
+  return Array.from(seen.values()).map(({ preset: p, sectionKey, sectionTitle }) => {
     const presetId = `preset__${p.method.toUpperCase()}__${p.urlPattern}`;
 
     // Sequential index used as the sole source of truth for variant IDs.
@@ -158,6 +204,8 @@ function presetsToMocks(presets: MockPreset[]): NetworkMock[] {
       source: 'preset' as const,
       variants,
       activeVariantId: activeVariant.id,
+      sectionKey,
+      sectionTitle,
     };
   });
 }
@@ -200,9 +248,12 @@ export interface NetworkLoggerProviderProps {
    */
   enableConsoleCapture?: boolean;
   /**
-   * Pre-load a set of mock rules at startup. These appear immediately in the
-   * Mocks tab with a **PRESET** badge, are active by default, and can be
-   * toggled or removed by the QA user at runtime.
+  * Pre-load a set of mock rules at startup. These appear immediately in the
+  * Mocks tab with a **PRESET** badge, are active by default, and can be
+  * toggled or removed by the QA user at runtime.
+  *
+  * Accepts either the legacy flat `MockPreset[]` form or a grouped
+  * `MockPresetSection[]` form for feature-based preset sections.
    *
    * Adding a new mock from the "Add Mock" tab with the same URL + method
    * automatically replaces the preset, giving the user a way to override
@@ -211,18 +262,23 @@ export interface NetworkLoggerProviderProps {
    * @example
    * ```tsx
    * <NetworkLogger
-   *   initialMocks={[
-   *     {
-   *       urlPattern: '/api/v1/user',
-   *       method: 'GET',
-   *       status: 200,
-   *       responseBody: JSON.stringify({ id: 1, name: 'QA User' }),
-   *     },
-   *   ]}
+  *   initialMocks={[
+  *     {
+  *       title: 'User',
+  *       mocks: [
+  *         {
+  *           urlPattern: '/api/v1/user',
+  *           method: 'GET',
+  *           status: 200,
+  *           responseBody: JSON.stringify({ id: 1, name: 'QA User' }),
+  *         },
+  *       ],
+  *     },
+  *   ]}
    * >
    * ```
    */
-  initialMocks?: MockPreset[];
+  initialMocks?: InitialMockDefinitions;
   /**
    * Developer-configured list of URL patterns the logger must ignore.
    *
@@ -257,7 +313,7 @@ export const NetworkLoggerProvider = ({
   blacklist,
 }: NetworkLoggerProviderProps) => {
   const initialPresetMocks = useMemo(
-    () => presetsToMocks(initialMocks ?? []),
+    () => presetsToMocks(normalizeInitialMocks(initialMocks)),
     [initialMocks],
   );
 
@@ -352,8 +408,8 @@ export const NetworkLoggerProvider = ({
   useEffect(() => {
     if (!enableConsoleCapture) return;
 
-    return subscribeToConsoleEntries((entry) => {
-      dispatch({ type: 'ADD_CONSOLE_ENTRY', payload: entry });
+    return subscribeToConsoleEntries((entries) => {
+      dispatch({ type: 'ADD_CONSOLE_ENTRIES', payload: entries });
     });
   }, [dispatch, enableConsoleCapture]);
 

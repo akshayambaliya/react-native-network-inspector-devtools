@@ -1,14 +1,28 @@
 import type { ConsoleEntry, ConsoleLogLevel } from '../types';
 
-type ConsoleSubscriber = (entry: ConsoleEntry) => void;
+type ConsoleSubscriber = (entries: ConsoleEntry[]) => void;
 type ConsoleMethod = (...args: unknown[]) => void;
 
 const CONSOLE_METHODS: ConsoleLogLevel[] = ['log', 'info', 'warn', 'error'];
 const subscribers = new Set<ConsoleSubscriber>();
 
+/** Emitted entries are queued and flushed together to avoid one re-render per console call. */
+const FLUSH_INTERVAL_MS = 250;
+/** Hard cap on the pending queue so a runaway logging loop can never exhaust memory. */
+const MAX_PENDING_ENTRIES = 500;
+
 let patchRefCount = 0;
 let sequence = 0;
 let originalConsole: Partial<Record<ConsoleLogLevel, ConsoleMethod>> | null = null;
+let pending: ConsoleEntry[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+/**
+ * Set while subscribers are being notified. Any console call made from inside a
+ * subscriber (or from a React render it triggers) is dropped instead of being
+ * re-queued — without this, a single log during render becomes an infinite
+ * log -> render -> log loop that locks up the JS thread.
+ */
+let isFlushing = false;
 
 const noop: ConsoleMethod = () => {};
 
@@ -62,8 +76,31 @@ const buildConsolePayload = (args: unknown[]) => {
   };
 };
 
+const flushConsoleEntries = () => {
+  flushTimer = null;
+  if (pending.length === 0 || subscribers.size === 0) {
+    pending = [];
+    return;
+  }
+
+  const batch = pending;
+  pending = [];
+  isFlushing = true;
+  try {
+    for (const subscriber of subscribers) {
+      try {
+        subscriber(batch);
+      } catch {
+        // Never let a logging subscriber break the app's console calls.
+      }
+    }
+  } finally {
+    isFlushing = false;
+  }
+};
+
 const emitConsoleEntry = (level: ConsoleLogLevel, args: unknown[]) => {
-  if (subscribers.size === 0) return;
+  if (subscribers.size === 0 || isFlushing) return;
 
   const now = Date.now();
   const { message, detail } = buildConsolePayload(args);
@@ -75,12 +112,13 @@ const emitConsoleEntry = (level: ConsoleLogLevel, args: unknown[]) => {
     timestamp: now,
   };
 
-  for (const subscriber of subscribers) {
-    try {
-      subscriber(entry);
-    } catch {
-      // Never let a logging subscriber break the app's console calls.
-    }
+  pending.push(entry);
+  if (pending.length > MAX_PENDING_ENTRIES) {
+    pending = pending.slice(-MAX_PENDING_ENTRIES);
+  }
+
+  if (flushTimer === null) {
+    flushTimer = setTimeout(flushConsoleEntries, FLUSH_INTERVAL_MS);
   }
 };
 
@@ -115,6 +153,12 @@ const uninstallGlobalConsolePatch = () => {
 
   patchRefCount -= 1;
   if (patchRefCount > 0) return;
+
+  if (flushTimer !== null) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  pending = [];
 
   const runtimeConsole = globalThis.console;
   if (runtimeConsole && originalConsole) {

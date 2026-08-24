@@ -19,6 +19,7 @@ export interface MockPrefill {
   method: string;
   status: string;
   responseBody: string;
+  responseHeaders?: Record<string, string>;
   matchType?: MockUrlMatchType;
   /** Delay in milliseconds. Converted to seconds for the delay field display. */
   delay?: number;
@@ -63,7 +64,7 @@ const SMART_CHAR_MAP: Record<string, string> = {
   "\u2028": "\n",
   "\u2029": "\n",
 };
-const sanitizeBodyInput = (text: string): string =>
+const sanitizeJsonInput = (text: string): string =>
   text.replace(SMART_CHAR_RE, (ch) => SMART_CHAR_MAP[ch] ?? ch);
 
 const prettyPrint = (value: unknown): string => {
@@ -132,6 +133,7 @@ interface FieldErrors {
   url?: string;
   status?: string;
   body?: string;
+  headers?: string;
   delay?: string;
 }
 
@@ -172,6 +174,92 @@ const validateBody = (value: string): string | undefined => {
   if (!value.trim()) return "Response body is required.";
   return undefined;
 };
+
+const HEADER_NAME_RE = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+const HEADER_INVALID_VALUE_CHARS_RE = /[\r\n\0]/;
+
+const parseResponseHeadersInput = (
+  value: string,
+): { headers?: Record<string, string>; error?: string } => {
+  const trimmed = value.trim();
+  if (!trimmed) return { headers: undefined };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return {
+      error:
+        "Headers must be valid JSON (object), for example {\"content-type\":\"application/json\"}.",
+    };
+  }
+
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+    return { error: "Headers must be a JSON object." };
+  }
+
+  const normalized: Record<string, string> = {};
+  const seenLowerCased = new Set<string>();
+  for (const [rawKey, rawValue] of Object.entries(
+    parsed as Record<string, unknown>,
+  )) {
+    if (!rawKey) {
+      return { error: "Header names cannot be empty." };
+    }
+    if (rawKey !== rawKey.trim()) {
+      return { error: "Header names cannot have leading or trailing spaces." };
+    }
+    if (!HEADER_NAME_RE.test(rawKey)) {
+      return {
+        error:
+          "Header names contain invalid characters. Use standard HTTP token characters only.",
+      };
+    }
+
+    const lowerCased = rawKey.toLowerCase();
+    if (seenLowerCased.has(lowerCased)) {
+      return {
+        error:
+          `Duplicate header name detected (case-insensitive): ${rawKey}`,
+      };
+    }
+    seenLowerCased.add(lowerCased);
+
+    if (
+      rawValue !== null &&
+      rawValue !== undefined &&
+      (typeof rawValue === "object" || typeof rawValue === "function")
+    ) {
+      return {
+        error:
+          "Header values must be strings, numbers, or booleans (not nested objects/arrays).",
+      };
+    }
+    if (rawValue == null) {
+      return {
+        error:
+          `Header value for "${rawKey}" cannot be null. Remove the key or use a string/number/boolean value.`,
+      };
+    }
+
+    const normalizedValue = String(rawValue);
+    if (HEADER_INVALID_VALUE_CHARS_RE.test(normalizedValue)) {
+      return {
+        error:
+          `Header value for "${rawKey}" contains a forbidden control character (newline or NUL).`,
+      };
+    }
+
+    normalized[rawKey] = normalizedValue;
+  }
+
+  return {
+    headers: Object.keys(normalized).length > 0 ? normalized : undefined,
+  };
+};
+
+const validateResponseHeadersInput = (value: string): string | undefined =>
+  parseResponseHeadersInput(value).error;
 
 interface MethodPickerProps {
   selected: string;
@@ -319,6 +407,7 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
   const [method, setMethod] = useState("GET");
   const [statusCode, setStatusCode] = useState("200");
   const [responseBody, setResponseBody] = useState("");
+  const [responseHeadersInput, setResponseHeadersInput] = useState("");
   const [delaySec, setDelaySec] = useState(""); // empty = no delay
 
   const isEditing = !!editId;
@@ -332,6 +421,7 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
     url: false,
     status: false,
     body: false,
+    headers: false,
     delay: false,
   });
 
@@ -339,6 +429,11 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
   const jsonStatus = getJsonStatus(responseBody);
   const jsonHint =
     jsonStatus === "invalid" ? getJsonHint(responseBody) : undefined;
+  const headersJsonStatus = getJsonStatus(responseHeadersInput);
+  const headersJsonHint =
+    headersJsonStatus === "invalid"
+      ? getJsonHint(responseHeadersInput)
+      : undefined;
 
   useEffect(() => {
     if (!prefill) return;
@@ -347,6 +442,7 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
     setMethod(METHODS.includes(prefill.method) ? prefill.method : "GET");
     setStatusCode(prefill.status || "200");
     setResponseBody(prettyPrint(prefill.responseBody));
+    setResponseHeadersInput(prettyPrint(prefill.responseHeaders));
     // Convert stored milliseconds → seconds string for the delay field (empty = no delay).
     setDelaySec(
       prefill.delay && prefill.delay > 0
@@ -354,7 +450,7 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
         : ''
     );
     setFieldErrors({});
-    setTouched({ url: false, status: false, body: false, delay: false });
+    setTouched({ url: false, status: false, body: false, headers: false, delay: false });
     onPrefillConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- prefill object reference is the only trigger
   }, [prefill]);
@@ -380,6 +476,14 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
     setFieldErrors((prev) => ({ ...prev, body: validateBody(responseBody) }));
   };
 
+  const handleHeadersBlur = () => {
+    markTouched("headers");
+    setFieldErrors((prev) => ({
+      ...prev,
+      headers: validateResponseHeadersInput(responseHeadersInput),
+    }));
+  };
+
   const handleDelayBlur = () => {
     markTouched("delay");
     setFieldErrors((prev) => ({ ...prev, delay: validateDelay(delaySec) }));
@@ -391,18 +495,21 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
       url: validateUrl(urlPattern, matchType),
       status: validateStatus(statusCode),
       body: validateBody(responseBody),
+      headers: validateResponseHeadersInput(responseHeadersInput),
       delay: validateDelay(delaySec),
     };
     setFieldErrors(errors);
-    setTouched({ url: true, status: true, body: true, delay: true });
+    setTouched({ url: true, status: true, body: true, headers: true, delay: true });
 
-    if (errors.url || errors.status || errors.body || errors.delay) return;
+    if (errors.url || errors.status || errors.body || errors.headers || errors.delay) return;
 
     // statusCode is validated to be a valid integer above — parseInt is safe here.
     // delaySec is optional; convert seconds → milliseconds (0 means no delay).
     const delayMs = delaySec.trim()
       ? Math.round(parseFloat(delaySec) * 1000)
       : undefined;
+    const normalizedHeaders = parseResponseHeadersInput(responseHeadersInput)
+      .headers;
 
     if (isEditing && onUpdate) {
       // Update existing mock.
@@ -414,6 +521,7 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
         method,
         status: parseInt(statusCode, 10),
         responseBody: responseBody.trim(),
+        responseHeaders: normalizedHeaders,
         delay: delayMs && delayMs > 0 ? delayMs : undefined,
       });
       onSaved?.();
@@ -428,6 +536,7 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
       method,
       status: parseInt(statusCode, 10),
       responseBody: responseBody.trim(),
+      ...(normalizedHeaders && { responseHeaders: normalizedHeaders }),
       enabled: true,
       ...(delayMs !== undefined && delayMs > 0 && { delay: delayMs }),
     };
@@ -438,9 +547,10 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
     setMethod("GET");
     setStatusCode("200");
     setResponseBody("");
+    setResponseHeadersInput("");
     setDelaySec("");
     setFieldErrors({});
-    setTouched({ url: false, status: false, body: false, delay: false });
+    setTouched({ url: false, status: false, body: false, headers: false, delay: false });
     setMatchType("contains");
     onSaved?.();
   };
@@ -448,6 +558,7 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
   const urlHasError = touched.url && !!fieldErrors.url;
   const statusHasError = touched.status && !!fieldErrors.status;
   const bodyHasError = touched.body && !!fieldErrors.body;
+  const headersHasError = touched.headers && !!fieldErrors.headers;
 
   return (
     <KeyboardAvoidingView
@@ -575,7 +686,7 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
               <JsonStatusBadge status={jsonStatus} hint={jsonHint} />
               <TouchableOpacity
                 onPress={() =>
-                setResponseBody((v) => prettyPrint(sanitizeBodyInput(v)))
+                setResponseBody((v) => prettyPrint(sanitizeJsonInput(v)))
               }
                 style={[styles.formatButton, { borderColor: theme.border }]}
                 accessibilityRole="button"
@@ -604,7 +715,7 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
               style={styles.codeInput}
               value={responseBody}
               onChangeText={(v) => {
-                const sanitized = sanitizeBodyInput(v);
+                const sanitized = sanitizeJsonInput(v);
                 setResponseBody(sanitized);
                 if (touched.body) {
                   setFieldErrors((prev) => ({
@@ -625,6 +736,83 @@ export const MockEditor = ({ prefill, onPrefillConsumed, onSaved, editId, onUpda
             />
           </View>
           <FieldError message={touched.body ? fieldErrors.body : undefined} />
+
+          {/* ── Response Headers (optional JSON) ── */}
+          <View style={styles.bodyLabelRow}>
+            <Text
+              style={[
+                styles.label,
+                { color: theme.textSecondary, marginTop: 0 },
+              ]}
+            >
+              RESPONSE HEADERS (optional JSON)
+            </Text>
+            <View style={styles.bodyLabelRight}>
+              <JsonStatusBadge
+                status={headersJsonStatus}
+                hint={headersJsonHint}
+              />
+              <TouchableOpacity
+                onPress={() =>
+                  setResponseHeadersInput((v) =>
+                    prettyPrint(sanitizeJsonInput(v)),
+                  )
+                }
+                style={[styles.formatButton, { borderColor: theme.border }]}
+                accessibilityRole="button"
+                accessibilityLabel="Format headers JSON"
+              >
+                <Text
+                  style={[
+                    styles.formatButtonText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  Format
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View
+            style={[
+              styles.codeInputWrapper,
+              styles.headersInputWrapper,
+              headersHasError
+                ? styles.codeInputWrapperError
+                : { borderColor: theme.border },
+            ]}
+          >
+            <TextInput
+              style={[styles.codeInput, styles.headersInput]}
+              value={responseHeadersInput}
+              onChangeText={(v) => {
+                const sanitized = sanitizeJsonInput(v);
+                setResponseHeadersInput(sanitized);
+                if (touched.headers) {
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    headers: validateResponseHeadersInput(sanitized),
+                  }));
+                }
+              }}
+              onBlur={handleHeadersBlur}
+              placeholder={'{\n  "content-type": "application/json",\n  "x-mock": "true"\n}'}
+              placeholderTextColor="#4B5563"
+              multiline
+              autoCapitalize="none"
+              autoCorrect={false}
+              textAlignVertical="top"
+              accessibilityLabel="Response headers"
+              accessibilityHint="Optional JSON object for mocked response headers"
+            />
+          </View>
+          <Text style={[styles.delayHint, { color: theme.textSecondary }]}>
+            Use a JSON object. Names must be valid HTTP header tokens. Values
+            must be string/number/boolean and cannot include newline characters.
+          </Text>
+          <FieldError
+            message={touched.headers ? fieldErrors.headers : undefined}
+          />
 
           {/* ── Response Delay (optional) ── */}
           <Text style={[styles.label, { color: theme.textSecondary }]}>
@@ -779,6 +967,12 @@ const styles = StyleSheet.create({
     minHeight: 140,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  headersInputWrapper: {
+    marginTop: 4,
+  },
+  headersInput: {
+    minHeight: 96,
   },
   fieldError: {
     color: "#DC2626",

@@ -1,4 +1,4 @@
-import type { MockPreset } from "react-native-network-inspector-devtools";
+import type { InitialMockDefinitions } from "react-native-network-inspector-devtools";
 
 /**
  * Pre-configured mock presets for the demo app.
@@ -9,348 +9,351 @@ import type { MockPreset } from "react-native-network-inspector-devtools";
  *  - Artificial delays to simulate slow networks
  *  - Mocking across different HTTP methods
  */
-export const DEMO_PRESETS: MockPreset[] = [
-  // ─── Auth: Login ──────────────────────────────────────────────────────────
+export const DEMO_PRESETS: InitialMockDefinitions = [
   {
-    urlPattern: "/users",
-    method: "POST",
-    matchType: "contains",
-    status: 200,
-    responseBody: JSON.stringify({
-      token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo",
-      userId: 42,
-      name: "John Doe",
-      email: "john@example.com",
-    }),
-    responseHeaders: { "x-auth-source": "mocked" },
-    variants: [
+    title: "Auth & Users",
+    mocks: [
       {
-        name: "Wrong Credentials",
-        status: 401,
-        responseBody: JSON.stringify({
-          error: "Unauthorized",
-          message: "Invalid username or password.",
-        }),
-      },
-      {
-        name: "Account Locked",
-        status: 403,
-        responseBody: JSON.stringify({
-          error: "Forbidden",
-          message: "Account has been locked after 5 failed attempts.",
-        }),
-      },
-      {
-        name: "Server Error",
-        status: 503,
-        responseBody: JSON.stringify({
-          error: "Service Unavailable",
-          message: "Auth service is temporarily down.",
-        }),
-        delay: 2000,
-      },
-    ],
-  },
-
-  // ─── Posts: GET list ─────────────────────────────────────────────────────
-  {
-    urlPattern: "/posts?_limit=5",
-    method: "GET",
-    matchType: "contains",
-    status: 200,
-    responseBody: JSON.stringify([
-      {
-        id: 1,
-        title: "Mocked Post #1",
-        body: "This response is mocked.",
-        userId: 1,
-      },
-      {
-        id: 2,
-        title: "Mocked Post #2",
-        body: "Served instantly from cache.",
-        userId: 1,
-      },
-      {
-        id: 3,
-        title: "Mocked Post #3",
-        body: "No real network call was made.",
-        userId: 2,
-      },
-    ]),
-    variants: [
-      {
-        name: "Empty List",
+        urlPattern: "/users",
+        method: "POST",
+        matchType: "contains",
         status: 200,
-        responseBody: JSON.stringify([]),
+        responseBody: JSON.stringify({
+          token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo",
+          userId: 42,
+          name: "John Doe",
+          email: "john@example.com",
+        }),
+        responseHeaders: { "x-auth-source": "mocked" },
+        variants: [
+          {
+            name: "Wrong Credentials",
+            status: 401,
+            responseBody: JSON.stringify({
+              error: "Unauthorized",
+              message: "Invalid username or password.",
+            }),
+          },
+          {
+            name: "Account Locked",
+            status: 403,
+            responseBody: JSON.stringify({
+              error: "Forbidden",
+              message: "Account has been locked after 5 failed attempts.",
+            }),
+          },
+          {
+            name: "Server Error",
+            status: 503,
+            responseBody: JSON.stringify({
+              error: "Service Unavailable",
+              message: "Auth service is temporarily down.",
+            }),
+            delay: 2000,
+          },
+        ],
       },
       {
-        name: "Server Error 500",
-        status: 500,
-        responseBody: JSON.stringify({ error: "Internal Server Error" }),
-      },
-      {
-        name: "Slow Response (3s)",
+        urlPattern: "/users",
+        method: "GET",
+        matchType: "contains",
         status: 200,
         responseBody: JSON.stringify([
           {
             id: 1,
-            title: "Slow Post",
-            body: "This took 3 seconds.",
-            userId: 1,
+            name: "Leanne Graham",
+            email: "Sincere@april.biz",
+            phone: "1-770-736-0988",
           },
-        ]),
-        delay: 3000,
-      },
-    ],
-  },
-
-  // ─── Posts: Create (POST) ─────────────────────────────────────────────────
-  {
-    urlPattern: "/posts",
-    method: "POST",
-    matchType: "exact",
-    status: 201,
-    responseBody: JSON.stringify({
-      id: 101,
-      title: "Demo Post from NetworkLogger",
-      body: "This POST request was captured by rn-network-logger.",
-      userId: 1,
-    }),
-    responseHeaders: { "x-created-by": "mock-server" },
-    variants: [
-      {
-        name: "Validation Error",
-        status: 422,
-        responseBody: JSON.stringify({
-          error: "Unprocessable Entity",
-          fields: {
-            title: "Title is required",
-            body: "Body must be at least 10 characters",
-          },
-        }),
-      },
-      {
-        name: "Rate Limited",
-        status: 429,
-        responseBody: JSON.stringify({
-          error: "Too Many Requests",
-          retryAfter: 60,
-        }),
-        delay: 500,
-      },
-    ],
-  },
-
-  // ─── Todos: GET with regex match ─────────────────────────────────────────
-  {
-    urlPattern: "/todos",
-    method: "GET",
-    matchType: "contains",
-    status: 200,
-    responseBody: JSON.stringify([
-      { id: 1, title: "Buy groceries", completed: false, userId: 1 },
-      { id: 2, title: "Read React Native docs", completed: true, userId: 1 },
-      { id: 3, title: "Build an app", completed: false, userId: 1 },
-      { id: 4, title: "Record demo video", completed: false, userId: 1 },
-    ]),
-    variants: [
-      {
-        name: "All Completed",
-        status: 200,
-        responseBody: JSON.stringify([
-          { id: 1, title: "Buy groceries", completed: true, userId: 1 },
           {
             id: 2,
-            title: "Read React Native docs",
-            completed: true,
-            userId: 1,
+            name: "Ervin Howell",
+            email: "Shanna@melissa.tv",
+            phone: "010-692-6593",
           },
-          { id: 3, title: "Build an app", completed: true, userId: 1 },
+          {
+            id: 3,
+            name: "Clementine Bauch",
+            email: "Nathan@yesenia.net",
+            phone: "1-463-123-4447",
+          },
         ]),
-      },
-      {
-        name: "Not Found",
-        status: 404,
-        responseBody: JSON.stringify({
-          error: "No todos found for this user.",
-        }),
-      },
-    ],
-  },
-
-  // ─── Pokémon: GET — showcase 'exact' matchType ───────────────────────────
-  {
-    urlPattern: "https://pokeapi.co/api/v2/pokemon/pikachu",
-    method: "GET",
-    matchType: "exact",
-    status: 200,
-    responseBody: JSON.stringify({
-      id: 25,
-      name: "pikachu",
-      height: 4,
-      weight: 60,
-      types: [{ slot: 1, type: { name: "electric" } }],
-      stats: [
-        { base_stat: 35, stat: { name: "hp" } },
-        { base_stat: 55, stat: { name: "attack" } },
-        { base_stat: 90, stat: { name: "speed" } },
-      ],
-    }),
-    variants: [
-      {
-        name: "Not Found",
-        status: 404,
-        responseBody: JSON.stringify({ detail: "Not Found" }),
-      },
-      {
-        name: "Offline / Network Error",
-        status: 503,
-        responseBody: JSON.stringify({ error: "Pokémon service is offline." }),
-        delay: 1500,
+        variants: [
+          {
+            name: "Server Down",
+            status: 503,
+            responseBody: JSON.stringify({ error: "User service is unavailable." }),
+            delay: 1000,
+          },
+        ],
       },
     ],
   },
-
-  // ─── Countries: GET India — showcase regex matchType ─────────────────────
   {
-    urlPattern: "/alpha/(IN|US|GB)",
-    method: "GET",
-    matchType: "regex",
-    status: 200,
-    responseBody: JSON.stringify([
+    title: "Posts & Todos",
+    mocks: [
       {
-        name: { common: "India (Mocked)", official: "Republic of India" },
-        capital: ["New Delhi"],
-        population: 1380000000,
-        region: "Asia",
-        currencies: { INR: { name: "Indian rupee", symbol: "₹" } },
-        flags: { alt: "Flag of India" },
-      },
-    ]),
-    variants: [
-      {
-        name: "Not Found",
-        status: 404,
-        responseBody: JSON.stringify({ status: 404, message: "Not Found" }),
-      },
-      {
-        name: "Slow (2s delay)",
+        urlPattern: "/posts?_limit=5",
+        method: "GET",
+        matchType: "contains",
         status: 200,
         responseBody: JSON.stringify([
           {
-            name: { common: "India (Slow)", official: "Republic of India" },
-            capital: ["New Delhi"],
-            population: 1380000000,
+            id: 1,
+            title: "Mocked Post #1",
+            body: "This response is mocked.",
+            userId: 1,
+          },
+          {
+            id: 2,
+            title: "Mocked Post #2",
+            body: "Served instantly from cache.",
+            userId: 1,
+          },
+          {
+            id: 3,
+            title: "Mocked Post #3",
+            body: "No real network call was made.",
+            userId: 2,
           },
         ]),
-        delay: 2000,
+        variants: [
+          {
+            name: "Empty List",
+            status: 200,
+            responseBody: JSON.stringify([]),
+          },
+          {
+            name: "Server Error 500",
+            status: 500,
+            responseBody: JSON.stringify({ error: "Internal Server Error" }),
+          },
+          {
+            name: "Slow Response (3s)",
+            status: 200,
+            responseBody: JSON.stringify([
+              {
+                id: 1,
+                title: "Slow Post",
+                body: "This took 3 seconds.",
+                userId: 1,
+              },
+            ]),
+            delay: 3000,
+          },
+        ],
       },
-    ],
-  },
-
-  // ─── Users: DELETE — showcase DELETE mock ────────────────────────────────
-  {
-    urlPattern: "/users",
-    method: "GET",
-    matchType: "contains",
-    status: 200,
-    responseBody: JSON.stringify([
       {
-        id: 1,
-        name: "Leanne Graham",
-        email: "Sincere@april.biz",
-        phone: "1-770-736-0988",
+        urlPattern: "/posts",
+        method: "POST",
+        matchType: "exact",
+        status: 201,
+        responseBody: JSON.stringify({
+          id: 101,
+          title: "Demo Post from NetworkLogger",
+          body: "This POST request was captured by rn-network-logger.",
+          userId: 1,
+        }),
+        responseHeaders: { "x-created-by": "mock-server" },
+        variants: [
+          {
+            name: "Validation Error",
+            status: 422,
+            responseBody: JSON.stringify({
+              error: "Unprocessable Entity",
+              fields: {
+                title: "Title is required",
+                body: "Body must be at least 10 characters",
+              },
+            }),
+          },
+          {
+            name: "Rate Limited",
+            status: 429,
+            responseBody: JSON.stringify({
+              error: "Too Many Requests",
+              retryAfter: 60,
+            }),
+            delay: 500,
+          },
+        ],
       },
       {
-        id: 2,
-        name: "Ervin Howell",
-        email: "Shanna@melissa.tv",
-        phone: "010-692-6593",
-      },
-      {
-        id: 3,
-        name: "Clementine Bauch",
-        email: "Nathan@yesenia.net",
-        phone: "1-463-123-4447",
-      },
-    ]),
-    variants: [
-      {
-        name: "Server Down",
-        status: 503,
-        responseBody: JSON.stringify({ error: "User service is unavailable." }),
-        delay: 1000,
-      },
-    ],
-  },
-
-  // ─── Fetch: Products GET — proves mocks apply to fetch too ───────────────
-  {
-    urlPattern: "dummyjson.com/products",
-    method: "GET",
-    matchType: "contains",
-    status: 200,
-    responseBody: JSON.stringify({
-      total: 2,
-      products: [
-        {
-          id: 1,
-          title: "Mocked Phone (via fetch)",
-          price: 549,
-          description: "Returned by the fetch interceptor mock.",
-        },
-        {
-          id: 2,
-          title: "Mocked Laptop (via fetch)",
-          price: 1299,
-          description: "No network call was made.",
-        },
-      ],
-    }),
-    responseHeaders: { "x-mock-source": "fetch-preset" },
-    variants: [
-      {
-        name: "Empty Catalog",
+        urlPattern: "/todos",
+        method: "GET",
+        matchType: "contains",
         status: 200,
-        responseBody: JSON.stringify({ total: 0, products: [] }),
+        responseBody: JSON.stringify([
+          { id: 1, title: "Buy groceries", completed: false, userId: 1 },
+          { id: 2, title: "Read React Native docs", completed: true, userId: 1 },
+          { id: 3, title: "Build an app", completed: false, userId: 1 },
+          { id: 4, title: "Record demo video", completed: false, userId: 1 },
+        ]),
+        variants: [
+          {
+            name: "All Completed",
+            status: 200,
+            responseBody: JSON.stringify([
+              { id: 1, title: "Buy groceries", completed: true, userId: 1 },
+              {
+                id: 2,
+                title: "Read React Native docs",
+                completed: true,
+                userId: 1,
+              },
+              { id: 3, title: "Build an app", completed: true, userId: 1 },
+            ]),
+          },
+          {
+            name: "Not Found",
+            status: 404,
+            responseBody: JSON.stringify({
+              error: "No todos found for this user.",
+            }),
+          },
+        ],
       },
+    ],
+  },
+  {
+    title: "External APIs",
+    mocks: [
       {
-        name: "Server Error 500",
-        status: 500,
-        responseBody: JSON.stringify({ error: "Catalog service down" }),
-      },
-      {
-        name: "Slow Response (3s)",
+        urlPattern: "https://pokeapi.co/api/v2/pokemon/pikachu",
+        method: "GET",
+        matchType: "exact",
         status: 200,
         responseBody: JSON.stringify({
-          total: 1,
-          products: [{ id: 1, title: "Slow Product", price: 1 }],
+          id: 25,
+          name: "pikachu",
+          height: 4,
+          weight: 60,
+          types: [{ slot: 1, type: { name: "electric" } }],
+          stats: [
+            { base_stat: 35, stat: { name: "hp" } },
+            { base_stat: 55, stat: { name: "attack" } },
+            { base_stat: 90, stat: { name: "speed" } },
+          ],
         }),
-        delay: 3000,
+        variants: [
+          {
+            name: "Not Found",
+            status: 404,
+            responseBody: JSON.stringify({ detail: "Not Found" }),
+          },
+          {
+            name: "Offline / Network Error",
+            status: 503,
+            responseBody: JSON.stringify({ error: "Pokémon service is offline." }),
+            delay: 1500,
+          },
+        ],
+      },
+      {
+        urlPattern: "/alpha/(IN|US|GB)",
+        method: "GET",
+        matchType: "regex",
+        status: 200,
+        responseBody: JSON.stringify([
+          {
+            name: { common: "India (Mocked)", official: "Republic of India" },
+            capital: ["New Delhi"],
+            population: 1380000000,
+            region: "Asia",
+            currencies: { INR: { name: "Indian rupee", symbol: "₹" } },
+            flags: { alt: "Flag of India" },
+          },
+        ]),
+        variants: [
+          {
+            name: "Not Found",
+            status: 404,
+            responseBody: JSON.stringify({ status: 404, message: "Not Found" }),
+          },
+          {
+            name: "Slow (2s delay)",
+            status: 200,
+            responseBody: JSON.stringify([
+              {
+                name: { common: "India (Slow)", official: "Republic of India" },
+                capital: ["New Delhi"],
+                population: 1380000000,
+              },
+            ]),
+            delay: 2000,
+          },
+        ],
       },
     ],
   },
-
-  // ─── Fetch: POST create — exact-match fetch mock ─────────────────────────
   {
-    urlPattern: "https://dummyjson.com/products/add",
-    method: "POST",
-    matchType: "exact",
-    status: 201,
-    responseBody: JSON.stringify({
-      id: 999,
-      title: "Fetch Demo Product (mocked)",
-      price: 99,
-    }),
-    variants: [
+    title: "Fetch Flows",
+    mocks: [
       {
-        name: "Validation Error",
-        status: 422,
+        urlPattern: "dummyjson.com/products",
+        method: "GET",
+        matchType: "contains",
+        status: 200,
         responseBody: JSON.stringify({
-          error: "Unprocessable Entity",
-          fields: { title: "Title is required" },
+          total: 2,
+          products: [
+            {
+              id: 1,
+              title: "Mocked Phone (via fetch)",
+              price: 549,
+              description: "Returned by the fetch interceptor mock.",
+            },
+            {
+              id: 2,
+              title: "Mocked Laptop (via fetch)",
+              price: 1299,
+              description: "No network call was made.",
+            },
+          ],
         }),
+        responseHeaders: { "x-mock-source": "fetch-preset" },
+        variants: [
+          {
+            name: "Empty Catalog",
+            status: 200,
+            responseBody: JSON.stringify({ total: 0, products: [] }),
+          },
+          {
+            name: "Server Error 500",
+            status: 500,
+            responseBody: JSON.stringify({ error: "Catalog service down" }),
+          },
+          {
+            name: "Slow Response (3s)",
+            status: 200,
+            responseBody: JSON.stringify({
+              total: 1,
+              products: [{ id: 1, title: "Slow Product", price: 1 }],
+            }),
+            delay: 3000,
+          },
+        ],
+      },
+      {
+        urlPattern: "https://dummyjson.com/products/add",
+        method: "POST",
+        matchType: "exact",
+        status: 201,
+        responseBody: JSON.stringify({
+          id: 999,
+          title: "Fetch Demo Product (mocked)",
+          price: 99,
+        }),
+        variants: [
+          {
+            name: "Validation Error",
+            status: 422,
+            responseBody: JSON.stringify({
+              error: "Unprocessable Entity",
+              fields: { title: "Title is required" },
+            }),
+          },
+        ],
       },
     ],
   },

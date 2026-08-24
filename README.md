@@ -43,7 +43,7 @@ Tap the floating button inside your app to inspect every outgoing axios **or fet
   <tr>
     <td align="center" width="50%">
       <h3>✏️&nbsp; Add Mock</h3>
-      <p>Manually create a mock rule for any endpoint. Choose URL match type (<code>contains</code>, <code>exact</code>, or <code>regex</code>), set the status code, body, and optional delay.</p>
+      <p>Manually create a mock rule for any endpoint. Choose URL match type (<code>contains</code>, <code>exact</code>, or <code>regex</code>), set the status code, body, optional response headers, and optional delay.</p>
        <a href="https://github.com/user-attachments/assets/670d4325-e82a-48a2-8a17-3d07cff35c09">
         <img src="https://raw.githubusercontent.com/akshayambaliya/images/ca1005b8190ecde445bfe033525e50ca03552b3c/Simulator%20Screenshot%20-%20iPhone%2015%20Pro%2018.1%20-%202026-04-10%20at%2022.08.29.png" width="320" alt="Mock from Existing API Demo" />
       </a>
@@ -103,7 +103,7 @@ Tap the floating button inside your app to inspect every outgoing axios **or fet
 | **URL blacklist**              | Pass `blacklist` to silently skip noisy or sensitive endpoints (analytics, auth, asset downloads). Matching requests are never logged and never mocked — they pass straight through to the real network. Supports `contains`, `exact`, and `regex` matching, with an optional per-method filter. |
 | **Smart match priority**       | `exact` beats `regex` beats `contains`; longer patterns beat shorter within the same type; user mocks always beat presets.                                                                                                       |
 | **Correct 4xx/5xx behaviour**  | Mocked error responses throw an `AxiosError` (axios) or return a `Response` with the correct `status` so `res.ok === false` (fetch), so your `catch` and `if (!res.ok)` branches fire exactly as they would with a real server. |
-| **One-tap mock prefill**       | Tap any log row → **Mock** to pre-fill the editor instantly.                                                                                                                                                                     |
+| **One-tap mock prefill**       | Tap any log row → **Mock** to pre-fill URL, method, response body, and response headers instantly.                                                                                                                               |
 | **Preset controls**            | The Presets tab includes a search box and an **All Presets** switch to enable/disable every preset mock in one action.                                                                                                         |
 | **5-tab panel**                | Logs / Add Mock / My Mocks / Presets / Console. The **My Mocks** and **Presets** tabs show a green ping dot when at least one mock in that category is enabled.                                                               |
 | **Automatic console capture**  | Captures `console.log`, `console.info`, `console.warn`, and `console.error` after mount and shows them in the Console tab with large-payload-safe rendering.                                                                    |
@@ -466,7 +466,7 @@ All-in-one wrapper component. Recommended for most use cases.
 | `instance`     | `AxiosInstance`                    | —                           | A single axios instance to intercept.                                               |
 | `instances`    | `AxiosInstance[]`                  | —                           | Multiple axios instances. Can be combined with `instance`.                          |
 | `enableFetch`  | `boolean`                          | `true`                      | Intercept the global `fetch` (and any fetch calls made by third-party libraries). Pass `false` to opt out and intercept axios only. |
-| `initialMocks` | `MockPreset[]`                     | —                           | Pre-load mock rules at startup. Appear in the **Presets** tab with a badge. Mocks apply to both axios and fetch. |
+| `initialMocks` | `MockPreset[] \| MockPresetSection[]` | —                        | Pre-load mock rules at startup. Pass a flat list or grouped feature sections. Grouped sections render per-section toggles in the **Presets** tab. |
 | `blacklist`    | `BlacklistRule[]`                  | —                           | URL patterns to silently skip. Matching requests are not logged and not mocked. See [BlacklistRule Options](#blacklistrule-options). |
 | `enableConsoleCapture` | `boolean`                 | `true`                      | Capture JS console output and show the **Console** tab. Set `false` to disable listener setup and hide the tab. |
 | `fabPosition`  | `{ bottom?, top?, left?, right? }` | `{ bottom: 90, right: 16 }` | Starting position of the floating button. Draggable at runtime.                     |
@@ -483,7 +483,7 @@ Context provider for the manual setup pattern.
 
 | Prop                   | Type           | Default | Description                                                                 |
 | ---------------------- | -------------- | ------- | --------------------------------------------------------------------------- |
-| `initialMocks`         | `MockPreset[]` | —       | Pre-load mock rules at startup.                                             |
+| `initialMocks`         | `MockPreset[] \| MockPresetSection[]` | — | Pre-load mock rules at startup using a flat list or grouped sections.        |
 | `blacklist`            | `BlacklistRule[]` | —    | URL patterns to silently skip. Matching requests are not logged and not mocked. See [BlacklistRule Options](#blacklistrule-options). |
 | `maxEntries`           | `number`       | `200`   | Maximum log entries to retain (applies to network + console entries).       |
 | `enableConsoleCapture` | `boolean`      | `true`  | Capture JS console output and expose the Console tab. Set `false` to disable. |
@@ -517,6 +517,16 @@ The floating 🌐 button that opens the panel.
 | `enabled`         | `boolean`                | —                     | Whether the mock starts active. Defaults to `true`.                           |
 | `variants`        | `MockPresetVariant[]`    | —                     | Additional named response scenarios.                                          |
 | `defaultVariant`  | `string`                 | —                     | Name of the variant to activate on first load. Defaults to the first variant. |
+
+### `MockPresetSection` Options
+
+Use this shape when you want the Presets tab grouped by feature/module with a section-level switch.
+
+| Field   | Type           | Required | Description                                                       |
+| ------- | -------------- | -------- | ----------------------------------------------------------------- |
+| `title` | `string`       | ✅       | Section title shown in the Presets tab.                           |
+| `key`   | `string`       | —        | Optional stable key for grouping/toggling. Defaults to `title`.   |
+| `mocks` | `MockPreset[]` | ✅       | Presets that belong to this section.                              |
 
 ---
 

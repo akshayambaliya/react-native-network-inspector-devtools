@@ -10,7 +10,21 @@ import { DetailsScreen, DetailScreenParams } from "./src/screens/DetailsScreen";
 import {
   NetworkLogger,
   type BlacklistRule,
+  type InitialMockDefinitions,
+  type MockPresetSection,
 } from "react-native-network-inspector-devtools";
+
+function isSectionPreset(
+  value: InitialMockDefinitions[number],
+): value is MockPresetSection {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    typeof (value as { title?: unknown }).title === "string" &&
+    "mocks" in value &&
+    Array.isArray((value as { mocks?: unknown }).mocks)
+  );
+}
 
 /**
  * Blacklist rules — see the "🚫 Blacklist" section on the Home screen.
@@ -51,6 +65,15 @@ const DEMO_BLACKLIST: BlacklistRule[] = [
  *  - Renders the draggable FAB + slide-up panel
  */
 export default function App() {
+  const presetCount = DEMO_PRESETS.reduce((count, entry) => {
+    return count + (isSectionPreset(entry) ? entry.mocks.length : 1);
+  }, 0);
+
+  const presetSections = DEMO_PRESETS.reduce(
+    (count, entry) => count + (isSectionPreset(entry) ? 1 : 0),
+    0,
+  );
+
   const [detailParams, setDetailParams] = useState<DetailScreenParams | null>(
     null,
   );
@@ -58,7 +81,8 @@ export default function App() {
   useEffect(() => {
     console.log("[Example] Network logger demo mounted", {
       screen: "Home",
-      presetsLoaded: DEMO_PRESETS.length,
+      presetsLoaded: presetCount,
+      presetSections,
       blacklistRules: DEMO_BLACKLIST.length,
       clients: ["jsonPlaceholderClient", "pokeClient", "countriesClient"],
     });
@@ -81,7 +105,7 @@ export default function App() {
       recoverable: true,
       note: "This is a synthetic example error entry, not an app failure.",
     });
-  }, []);
+  }, [presetCount, presetSections]);
 
   return (
     <NetworkLogger

@@ -14,6 +14,13 @@ import { useTheme } from "../theme";
 import type { NetworkMock } from "../types";
 import { MockDetailView } from "./MockDetailView";
 
+interface PresetSectionGroup {
+  key: string;
+  title: string;
+  allMocks: NetworkMock[];
+  visibleMocks: NetworkMock[];
+}
+
 interface Props {
   /** Which mock source to display. Defaults to 'user'. */
   source?: 'user' | 'preset';
@@ -25,6 +32,7 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
   const { mocks, dispatch } = useNetworkLogger();
   const theme = useTheme();
   const [filter, setFilter] = useState('');
+  const [pinnedSectionKeys, setPinnedSectionKeys] = useState<string[]>([]);
 
   // Filter to only the relevant source for this view.
   const sourceMocks = mocks.filter((m) =>
@@ -34,10 +42,10 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
   const normalizedFilter = filter.trim().toLowerCase();
   const filtered = normalizedFilter
     ? sourceMocks.filter((mock) => {
-        const variantNames = (mock.variants ?? []).map((variant) => variant.name).join(' ');
-        const haystack = `${mock.method} ${mock.urlPattern} ${variantNames}`.toLowerCase();
-        return haystack.includes(normalizedFilter);
-      })
+      const variantNames = (mock.variants ?? []).map((variant) => variant.name).join(' ');
+      const haystack = `${mock.method} ${mock.urlPattern} ${variantNames}`.toLowerCase();
+      return haystack.includes(normalizedFilter);
+    })
     : sourceMocks;
 
   // Pinned mocks float to the top; order within each group is preserved.
@@ -46,8 +54,70 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
     ...filtered.filter((m) => !m.pinned),
   ];
 
+  const presetSectionGroups = new Map<string, PresetSectionGroup>();
+  if (source === 'preset') {
+    for (const mock of sourceMocks) {
+      if (!mock.sectionKey || !mock.sectionTitle) continue;
+
+      const existing = presetSectionGroups.get(mock.sectionKey);
+      if (existing) {
+        existing.allMocks.push(mock);
+      } else {
+        presetSectionGroups.set(mock.sectionKey, {
+          key: mock.sectionKey,
+          title: mock.sectionTitle,
+          allMocks: [mock],
+          visibleMocks: [],
+        });
+      }
+    }
+
+    for (const mock of visibleMocks) {
+      if (!mock.sectionKey || !mock.sectionTitle) continue;
+
+      const section = presetSectionGroups.get(mock.sectionKey);
+      if (section) {
+        section.visibleMocks.push(mock);
+      }
+    }
+  }
+
   const allPresetsEnabled =
     source === 'preset' && sourceMocks.length > 0 && sourceMocks.every((mock) => mock.enabled);
+
+  const presetBlocks: Array<{ type: 'row'; mock: NetworkMock } | { type: 'section'; section: PresetSectionGroup }> = [];
+  if (source === 'preset') {
+    const renderedSections = new Set<string>();
+
+    for (const mock of visibleMocks) {
+      if (mock.sectionKey && mock.sectionTitle) {
+        if (renderedSections.has(mock.sectionKey)) continue;
+
+        const section = presetSectionGroups.get(mock.sectionKey);
+        if (section && section.visibleMocks.length > 0) {
+          presetBlocks.push({ type: 'section', section });
+          renderedSections.add(mock.sectionKey);
+        }
+        continue;
+      }
+
+      presetBlocks.push({ type: 'row', mock });
+    }
+  }
+
+  const orderedPresetBlocks =
+    source === 'preset'
+      ? [
+          ...presetBlocks.filter(
+            (block) =>
+              block.type === 'section' && pinnedSectionKeys.includes(block.section.key)
+          ),
+          ...presetBlocks.filter(
+            (block) =>
+              block.type !== 'section' || !pinnedSectionKeys.includes(block.section.key)
+          ),
+        ]
+      : [];
 
   // ID of the currently selected mock. We look it up live from `mocks` so
   // that toggle changes made inside MockDetailView are immediately reflected.
@@ -75,7 +145,7 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
         </Text>
         <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
           {source === 'preset'
-            ? 'Pass initialMocks to <NetworkLogger> to pre-load preset rules.'
+            ? 'Pass initialMocks as a flat list or section list to pre-load preset rules.'
             : 'Add a mock rule from the "Add Mock" tab or tap "Mock" on any log entry.'}
         </Text>
       </View>
@@ -244,6 +314,78 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
     );
   };
 
+  const renderSection = (section: PresetSectionGroup) => {
+    const enabledCount = section.allMocks.filter((mock) => mock.enabled).length;
+    const allSectionEnabled = section.allMocks.length > 0 && enabledCount === section.allMocks.length;
+    const isSectionPinned = pinnedSectionKeys.includes(section.key);
+    const visibleCount = section.visibleMocks.length;
+    const totalCount = section.allMocks.length;
+    const countLabel =
+      visibleCount === totalCount
+        ? `${totalCount} preset${totalCount === 1 ? '' : 's'}`
+        : `${visibleCount} of ${totalCount} presets shown`;
+
+    return (
+      <View
+        key={`section:${section.key}`}
+        style={[styles.sectionBlock, { borderColor: theme.border }]}
+      >
+        <View style={[styles.sectionHeader, { backgroundColor: theme.surface }]}>
+          <View style={styles.sectionHeaderTextWrap}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              {section.title}
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+              {countLabel} • {enabledCount} enabled
+            </Text>
+          </View>
+          <View style={styles.sectionHeaderActions}>
+            <TouchableOpacity
+              onPress={() =>
+                setPinnedSectionKeys((prev) =>
+                  prev.includes(section.key)
+                    ? prev.filter((key) => key !== section.key)
+                    : [section.key, ...prev]
+                )
+              }
+              style={[
+                styles.sectionPinButton,
+                isSectionPinned
+                  ? { backgroundColor: theme.primary }
+                  : { borderColor: theme.border, borderWidth: StyleSheet.hairlineWidth },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={isSectionPinned ? `Unpin preset section ${section.title}` : `Pin preset section ${section.title} to top`}
+              accessibilityState={{ selected: isSectionPinned }}
+            >
+              <Text style={[styles.sectionPinButtonText, { color: isSectionPinned ? '#FFFFFF' : theme.textSecondary }]}>📌</Text>
+            </TouchableOpacity>
+
+            <View style={styles.switchWrapper}>
+            <Switch
+              value={allSectionEnabled}
+              onValueChange={(enabled) =>
+                dispatch({
+                  type: 'SET_PRESET_SECTION_ENABLED',
+                  payload: { sectionKey: section.key, enabled },
+                })
+              }
+              trackColor={{ false: '#767577', true: theme.primary }}
+              style={styles.switch}
+              accessibilityLabel={`Toggle preset section ${section.title}`}
+              accessibilityRole="switch"
+            />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.sectionRows}>
+          {section.visibleMocks.map(renderRow)}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <ScrollView
       style={[styles.scroll, { backgroundColor: theme.background }]}
@@ -304,7 +446,11 @@ export const MockListView = ({ source = 'user', onEditMock }: Props) => {
           <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Try a different method, URL or variant name.</Text>
         </View>
       ) : (
-        visibleMocks.map(renderRow)
+        source === 'preset'
+          ? orderedPresetBlocks.map((block) =>
+            block.type === 'section' ? renderSection(block.section) : renderRow(block.mock)
+          )
+          : visibleMocks.map(renderRow)
       )}
     </ScrollView>
   );
@@ -321,6 +467,51 @@ const styles = StyleSheet.create({
   controls: {
     gap: 8,
     marginBottom: 8,
+  },
+  sectionBlock: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 12,
+  },
+  sectionHeaderTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  sectionHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionPinButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionPinButtonText: {
+    fontSize: 14,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+  },
+  sectionRows: {
+    padding: 8,
+    paddingBottom: 4,
+    width: '100%',
   },
   searchInput: {
     height: 36,
@@ -388,7 +579,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 4,
   },
-  mockInfo: { flex: 1, gap: 4 },
+  mockInfo: { flex: 1, gap: 4, minWidth: 0 },
   badgeRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -473,17 +664,22 @@ const styles = StyleSheet.create({
   variantChips: {
     flexDirection: "row",
     flexWrap: "wrap",
+    width: '100%',
     gap: 4,
     marginTop: 6,
   },
   variantChip: {
-    borderRadius: 20,
+    borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    maxWidth: '100%',
+    minWidth: 0,
+    alignSelf: 'flex-start',
   },
   variantChipText: {
     fontSize: 11,
     fontWeight: "600",
+    flexShrink: 1,
   },
   /**
    * Provides a stable layout box for the Switch so the larger iOS 26
