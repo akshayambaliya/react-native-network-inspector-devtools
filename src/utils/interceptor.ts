@@ -15,17 +15,32 @@ import type {
 } from "../types";
 import { pickMock } from "./mockMatcher";
 import { isBlacklisted } from "./blacklistMatcher";
+import { truncateBody } from "./bodySize";
 
 /** Monotonic counter — no collision risk, no custom header injected into real requests. */
 let _reqCounter = 0;
 const nextId = (): string => (++_reqCounter).toString(36);
 
+/**
+ * Enumerable config property used to correlate a request with its response.
+ * We deliberately avoid keying a `Map` by the `config` object's identity —
+ * auth-refresh/retry interceptors commonly rebuild the config via
+ * `{ ...error.config, ... }` before replaying the request, which produces a
+ * brand-new object that would never match. An enumerable own property
+ * survives that kind of shallow clone (unlike a non-enumerable one), while a
+ * plain HTTP header would not — axios strips config-only properties before
+ * they ever reach the wire, so nothing is sent to the server.
+ */
+const ID_KEY = "__rnNetworkInspectorReqId__";
+
+type TaggedConfig = InternalAxiosRequestConfig & { [ID_KEY]?: string };
+
 const safeStringify = (value: unknown): string | undefined => {
   if (value === undefined || value === null) return undefined;
   try {
-    return JSON.stringify(value);
+    return truncateBody(JSON.stringify(value));
   } catch {
-    return String(value);
+    return truncateBody(String(value));
   }
 };
 
@@ -52,8 +67,8 @@ export const installInterceptors = (
   activeMocksRef: { current: NetworkMock[] },
   blacklistRef?: { current: BlacklistRule[] },
 ): (() => void) => {
-  /** Correlates a config object → { id, startTime } without injecting custom headers. */
-  const reqMeta = new Map<object, { id: string; startTime: number }>();
+  /** Correlates a request id (stamped on config) → its start time. */
+  const reqMeta = new Map<string, number>();
 
   const reqId = axiosInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
@@ -70,7 +85,8 @@ export const installInterceptors = (
       const id = nextId();
       const startTime = Date.now();
 
-      reqMeta.set(config, { id, startTime });
+      (config as TaggedConfig)[ID_KEY] = id;
+      reqMeta.set(id, startTime);
 
       const entry: NetworkLogEntry = {
         id,
@@ -154,10 +170,10 @@ export const installInterceptors = (
 
   const resId = axiosInstance.interceptors.response.use(
     (response: AxiosResponse): AxiosResponse => {
-      const meta = response.config ? reqMeta.get(response.config) : undefined;
-      if (meta) {
-        const { id, startTime } = meta;
-        reqMeta.delete(response.config);
+      const id = (response.config as TaggedConfig | undefined)?.[ID_KEY];
+      const startTime = id ? reqMeta.get(id) : undefined;
+      if (id && startTime !== undefined) {
+        reqMeta.delete(id);
         const endTime = Date.now();
         dispatchRef.current({
           type: "UPDATE_ENTRY",
@@ -177,10 +193,10 @@ export const installInterceptors = (
       return response;
     },
     (error: AxiosError) => {
-      const meta = error.config ? reqMeta.get(error.config) : undefined;
-      if (meta) {
-        const { id, startTime } = meta;
-        if (error.config) reqMeta.delete(error.config);
+      const id = (error.config as TaggedConfig | undefined)?.[ID_KEY];
+      const startTime = id ? reqMeta.get(id) : undefined;
+      if (id && startTime !== undefined) {
+        reqMeta.delete(id);
         const endTime = Date.now();
         dispatchRef.current({
           type: "UPDATE_ENTRY",

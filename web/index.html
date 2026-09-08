@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Network Inspector — Web Panel</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span>Network Inspector</span>
+      </div>
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="logs">Logs</button>
+        <button class="tab" data-tab="add-mock">Add Mock</button>
+        <button class="tab" data-tab="my-mocks">My Mocks</button>
+        <button class="tab" data-tab="presets">Presets</button>
+        <button class="tab" data-tab="console">Console</button>
+      </nav>
+      <div class="status" id="status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Connecting…</span>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="panel-master" id="master"></section>
+      <section class="panel-detail" id="detail">
+        <div class="empty-state">Select an item to see details</div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

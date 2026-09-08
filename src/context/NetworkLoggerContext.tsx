@@ -22,8 +22,7 @@ import type {
   BlacklistRule,
 } from "../types";
 import { initialState, reducer } from "./reducer";
-import { subscribeToConsoleEntries } from '../utils/consoleInterceptor';
-
+import { subscribeToConsoleEntries } from '../utils/consoleInterceptor';import { connectWebSync, type WebSyncHandle } from '../utils/webSync';
 const MOCKS_STORAGE_KEY = 'react-native-network-inspector-devtools:mocks';
 
 function mergeMocks(presetMocks: NetworkMock[], savedMocks: NetworkMock[]) {
@@ -303,6 +302,29 @@ export interface NetworkLoggerProviderProps {
    * ```
    */
   blacklist?: BlacklistRule[];
+  /**
+   * Mirrors this logger's state to a browser tab via the companion web panel
+   * (run `npx network-inspector-web` alongside Metro). Logs, mocks, presets,
+   * and console entries stay in sync in both directions — toggling, adding,
+   * editing, or removing a mock from the browser dispatches the exact same
+   * reducer action as doing it on-device, so behaviour (and persistence to
+   * `AsyncStorage`) is identical either way.
+   *
+   * Defaults to `false`. Gate it the same way you gate the logger itself —
+   * never enable it in a production build:
+   * ```tsx
+   * <NetworkLogger enabled={__DEV__} enableWebSync={__DEV__} instance={api}>
+   * ```
+   */
+  enableWebSync?: boolean;
+  /**
+   * Host of the machine running `npx network-inspector-web`. Defaults to the
+   * Metro dev server host embedded in the JS bundle URL (falls back to
+   * `localhost`, or `10.0.2.2` on Android emulators).
+   */
+  webSyncHost?: string;
+  /** Port the web panel server is listening on. Defaults to `8973`. */
+  webSyncPort?: number;
 }
 
 export const NetworkLoggerProvider = ({
@@ -311,6 +333,9 @@ export const NetworkLoggerProvider = ({
   enableConsoleCapture = true,
   initialMocks,
   blacklist,
+  enableWebSync = false,
+  webSyncHost,
+  webSyncPort,
 }: NetworkLoggerProviderProps) => {
   const initialPresetMocks = useMemo(
     () => presetsToMocks(normalizeInitialMocks(initialMocks)),
@@ -412,6 +437,30 @@ export const NetworkLoggerProvider = ({
       dispatch({ type: 'ADD_CONSOLE_ENTRIES', payload: entries });
     });
   }, [dispatch, enableConsoleCapture]);
+
+  // Holds the live web-panel connection so the state-sync effect below can
+  // push updates without re-subscribing on every state change.
+  const webSyncRef = useRef<WebSyncHandle | null>(null);
+
+  useEffect(() => {
+    if (!enableWebSync) return;
+
+    const client = connectWebSync({
+      host: webSyncHost,
+      port: webSyncPort,
+      onAction: dispatch,
+    });
+    webSyncRef.current = client;
+
+    return () => {
+      client.disconnect();
+      webSyncRef.current = null;
+    };
+  }, [enableWebSync, webSyncHost, webSyncPort, dispatch]);
+
+  useEffect(() => {
+    webSyncRef.current?.sendState(state);
+  }, [state]);
 
   const value = useMemo<NetworkLoggerContextValue>(() => {
     const selectedEntry = state.selectedEntryId

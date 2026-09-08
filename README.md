@@ -75,6 +75,7 @@ Tap the floating button inside your app to inspect every outgoing axios **or fet
   - [URL Blacklist (Skip Noisy or Sensitive Endpoints)](#4-url-blacklist-skip-noisy-or-sensitive-endpoints)
   - [Always-on QA Build with Increased Log Buffer](#5-always-on-qa-build-with-increased-log-buffer)
   - [Manual Setup for Full Rendering Control](#6-manual-setup-for-full-rendering-control)
+- [Web Panel: Inspect & Mock From Your Browser](#web-panel-inspect--mock-from-your-browser)
 - [URL Match Types](#url-match-types)
 - [Configuration](#configuration)
   - [\<NetworkLogger\> Props](#networklogger-props)
@@ -113,7 +114,8 @@ Tap the floating button inside your app to inspect every outgoing axios **or fet
 | **Multiple axios instances**   | Intercept as many clients as you need.                                                                                                                                                                                           |
 | **Global fetch interception**  | The global `fetch` is patched once on mount (idempotent, restored on unmount). Supports string / `URL` / `Request` inputs and `Headers` / array / object headers.                                                                |
 | **Zero production overhead**   | Pass `enabled={__DEV__}` to strip everything in release builds.                                                                                                                                                                  |
-| **Zero non-peer dependencies** | Only `react`, `react-native`, and `axios`.                                                                                                                                                                                       |
+| **Zero non-peer dependencies (app bundle)** | The in-app logger itself only needs `react`, `react-native`, and `axios` — nothing extra ships in your app's JS bundle. The optional [web panel](#web-panel-inspect--mock-from-your-browser) is a separate `npx` CLI tool (uses `ws` on your dev machine only, never bundled into the app). |
+| **Web panel (fully synced)** | Run `npx network-inspector-web` to open the same Logs / Add Mock / My Mocks / Presets / Console panel in a browser tab. Every action (toggle, add, edit, delete, switch variant) dispatches the same reducer action as on-device, so state stays identical on both ends — great for inspecting large responses. |
 | **Fully typed**                | Complete TypeScript definitions bundled no `@types/` package needed.                                                                                                                                                             |
 
 ---
@@ -436,6 +438,75 @@ export default function App() {
 
 ---
 
+## Web Panel: Inspect & Mock From Your Browser
+
+Large API responses (paginated lists, big JSON payloads) are painful to read on a phone screen. The web panel renders the **exact same** Logs / Add Mock / My Mocks / Presets / Console tabs in a browser tab, kept in sync with the device in real time over a local WebSocket connection.
+
+It ships inside this package as a small CLI (`network-inspector-web`) run with `npx` — no separate install, no account, nothing hosted. There is no extra setup beyond one prop on `<NetworkLogger>`.
+
+### How it works
+
+- Your app connects to a local relay server as the **source of truth** — the same reducer that powers the in-app panel keeps running on-device.
+- The browser tab is a **thin client**: it renders whatever state the app broadcasts, and any action you trigger in the browser (toggle a mock, add a mock, switch a variant, clear logs) is sent to the app and dispatched through the *same* reducer path used by the in-app panel. Toggling a mock in the browser toggles it on the device (and persists to `AsyncStorage`) exactly as if you had tapped it on-screen — and vice versa.
+- Multiple browser tabs can connect at once; all of them stay in sync with the device.
+
+```
+Your RN App  <-- WebSocket -->  network-inspector-web relay  <-- WebSocket -->  Browser tab
+```
+
+### 1. Enable sync on the device
+
+```tsx
+<NetworkLogger
+  enabled={__DEV__}
+  enableWebSync={__DEV__} // opt in — never enable in production builds
+  instance={apiClient}
+>
+  <RootNavigator />
+</NetworkLogger>
+```
+
+### 2. Start the web panel
+
+In a terminal, alongside your Metro/dev server:
+
+```bash
+npx network-inspector-web
+```
+
+This starts a local server (default port `8973`), prints its URL, and opens it in your default browser automatically. Reload your app (or trigger any request) — the panel fills in as soon as the device connects.
+
+```
+  react-native-network-inspector-devtools — web panel
+  Listening on http://localhost:8973
+  Waiting for your app to connect (enableWebSync={__DEV__})...
+```
+
+Useful flags:
+
+| Flag              | Description                                                |
+| ----------------- | ----------------------------------------------------------- |
+| `--port <number>` | Run the relay server on a custom port. Defaults to `8973`.  |
+| `--no-open`       | Don't auto-open the browser tab.                             |
+
+### 3. Physical devices
+
+The RN app auto-detects the host from the Metro dev server URL, so this works out of the box on simulators, emulators, and physical devices on the same network — no manual IP configuration needed. If auto-detection doesn't match your setup, override it explicitly:
+
+```tsx
+<NetworkLogger
+  enabled={__DEV__}
+  enableWebSync={__DEV__}
+  webSyncHost="192.168.1.20" // your dev machine's LAN IP
+  webSyncPort={8973}
+  instance={apiClient}
+>
+```
+
+> **Dependency note:** `network-inspector-web` uses the `ws` package on your development machine only. It is never imported by any file under `src/`, so it adds nothing to your app's JS bundle — the in-app logger keeps its zero-runtime-dependency footprint.
+
+---
+
 ## URL Match Types
 
 Every mock rule has a `matchType` that controls how its `urlPattern` is compared to outgoing request URLs.
@@ -471,6 +542,9 @@ All-in-one wrapper component. Recommended for most use cases.
 | `enableConsoleCapture` | `boolean`                 | `true`                      | Capture JS console output and show the **Console** tab. Set `false` to disable listener setup and hide the tab. |
 | `fabPosition`  | `{ bottom?, top?, left?, right? }` | `{ bottom: 90, right: 16 }` | Starting position of the floating button. Draggable at runtime.                     |
 | `maxEntries`   | `number`                           | `200`                       | Maximum log entries to retain. Oldest are dropped when the cap is reached.          |
+| `enableWebSync` | `boolean`                         | `false`                     | Mirror this logger to the [web panel](#web-panel-inspect--mock-from-your-browser) over WebSocket, fully bidirectional. See [Web Panel](#web-panel-inspect--mock-from-your-browser). |
+| `webSyncHost`  | `string`                           | auto-detected               | Host running `npx network-inspector-web`. Defaults to the Metro dev server host.    |
+| `webSyncPort`  | `number`                           | `8973`                      | Port the web panel server is listening on.                                          |
 | `children`     | `ReactNode`                        | —                           | Your app tree.                                                                      |
 
 > **Note:** The `showMockIndicator` prop (green dot on the FAB corner) is not forwarded through `<NetworkLogger>`. If you need to control it, use the [manual setup](#5-manual-setup-for-full-rendering-control) and pass `showMockIndicator` directly to `<NetworkLoggerFAB>`.
@@ -487,6 +561,9 @@ Context provider for the manual setup pattern.
 | `blacklist`            | `BlacklistRule[]` | —    | URL patterns to silently skip. Matching requests are not logged and not mocked. See [BlacklistRule Options](#blacklistrule-options). |
 | `maxEntries`           | `number`       | `200`   | Maximum log entries to retain (applies to network + console entries).       |
 | `enableConsoleCapture` | `boolean`      | `true`  | Capture JS console output and expose the Console tab. Set `false` to disable. |
+| `enableWebSync`        | `boolean`      | `false` | Mirror this logger to the [web panel](#web-panel-inspect--mock-from-your-browser) over WebSocket, fully bidirectional. |
+| `webSyncHost`          | `string`       | auto-detected | Host running `npx network-inspector-web`. Defaults to the Metro dev server host. |
+| `webSyncPort`          | `number`       | `8973`  | Port the web panel server is listening on.                                  |
 | `children`             | `ReactNode`    | —       | Your app tree.                                                              |
 
 ---

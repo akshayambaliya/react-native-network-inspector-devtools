@@ -8,6 +8,7 @@ import type {
 } from '../types';
 import { pickMock } from './mockMatcher';
 import { isBlacklisted } from './blacklistMatcher';
+import { truncateBody } from './bodySize';
 
 /** Monotonic counter — prefixed so fetch IDs never collide with axios IDs. */
 let _reqCounter = 0;
@@ -233,7 +234,7 @@ export const installFetchInterceptor = (
       url,
       method,
       requestHeaders,
-      requestBody,
+      requestBody: truncateBody(requestBody),
       startTime,
       state: 'pending',
       isMocked: false,
@@ -280,7 +281,7 @@ export const installFetchInterceptor = (
           patch: {
             status: matchedMock.status,
             responseHeaders: responseHeadersToRecord(headers),
-            responseBody: body,
+            responseBody: truncateBody(body),
             endTime,
             duration: endTime - startTime,
             // Mirror axios: any non-2xx status surfaces as `error` in the
@@ -317,7 +318,7 @@ export const installFetchInterceptor = (
           patch: {
             status: response.status,
             responseHeaders: responseHeadersToRecord(response.headers),
-            responseBody,
+            responseBody: truncateBody(responseBody),
             endTime,
             duration: endTime - startTime,
             // fetch only rejects on network failure; HTTP error statuses still

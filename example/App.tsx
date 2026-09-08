@@ -121,6 +121,8 @@ export default function App() {
       blacklist={DEMO_BLACKLIST}
       // Always enabled in this demo; in a real app: enabled={__DEV__}
       enabled
+      // Mirror this logger to the browser panel: `npx network-inspector-web`
+      enableWebSync
       // FAB sits just above the home-indicator area
       fabPosition={{ bottom: 40, right: 20 }}
     >

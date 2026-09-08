@@ -1,6 +1,6 @@
 {
   "name": "react-native-network-inspector-devtools",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "In-app network request logger and mocker for React Native. Captures axios traffic, renders a QA-friendly panel, and supports per-request response mocking.",
   "license": "MIT",
   "author": "Akshay Ambaliya",
@@ -25,9 +25,15 @@
     }
   },
   "sideEffects": false,
+  "bin": {
+    "network-inspector-web": "./bin/network-inspector-web.js"
+  },
   "files": [
     "src",
     "lib",
+    "bin",
+    "server",
+    "web",
     "LICENSE"
   ],
   "engines": {
@@ -37,7 +43,8 @@
     "build": "bob build",
     "check-types": "tsc --noEmit",
     "lint": "eslint src --ext .ts,.tsx",
-    "prepare": "bob build"
+    "prepare": "bob build",
+    "web-panel": "node ./bin/network-inspector-web.js"
   },
   "keywords": [
     "react-native",
@@ -57,6 +64,9 @@
     "axios": ">=1.0.0",
     "react": ">=18.0.0",
     "react-native": ">=0.73.0"
+  },
+  "dependencies": {
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",

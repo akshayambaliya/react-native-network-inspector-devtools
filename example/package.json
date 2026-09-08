@@ -5,7 +5,8 @@
   "scripts": {
     "start": "./node_modules/.bin/expo start --clear",
     "android": "./node_modules/.bin/expo start --android --clear --localhost",
-    "ios": "./node_modules/.bin/expo start --ios --clear --localhost"
+    "ios": "./node_modules/.bin/expo start --ios --clear --localhost",
+    "web-panel": "node ./node_modules/react-native-network-inspector-devtools/bin/network-inspector-web.js"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.1.0",

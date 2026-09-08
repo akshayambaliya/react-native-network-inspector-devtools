@@ -1,4 +1,4 @@
-import type { NetworkLoggerAction, NetworkLoggerState } from '../types';
+import type { NetworkLogEntry, NetworkLoggerAction, NetworkLoggerState } from '../types';
 
 export const initialState: NetworkLoggerState = {
   entries: [],
@@ -9,6 +9,28 @@ export const initialState: NetworkLoggerState = {
   maxEntries: 200,
 };
 
+/**
+ * Caps `entries` at `maxEntries` by evicting the oldest **settled**
+ * (`done`/`error`) rows first. A plain `slice(0, maxEntries)` would happily
+ * drop a still-`pending` row whenever request volume is high (e.g. libraries
+ * like TanStack Query refetching/polling in the background) — its later
+ * `UPDATE_ENTRY` would then have no matching id and silently no-op, making
+ * the request look "stuck" in the panel forever even though it completed.
+ */
+function trimEntries(entries: NetworkLogEntry[], maxEntries: number): NetworkLogEntry[] {
+  if (entries.length <= maxEntries) return entries;
+  let excess = entries.length - maxEntries;
+  const removeAt = new Set<number>();
+  for (let i = entries.length - 1; i >= 0 && excess > 0; i--) {
+    if (entries[i]!.state !== 'pending') {
+      removeAt.add(i);
+      excess--;
+    }
+  }
+  if (removeAt.size === 0) return entries;
+  return entries.filter((_, i) => !removeAt.has(i));
+}
+
 export function reducer(
   state: NetworkLoggerState,
   action: NetworkLoggerAction
@@ -16,7 +38,7 @@ export function reducer(
   switch (action.type) {
     case 'ADD_ENTRY': {
       const entries = [action.payload, ...state.entries];
-      return { ...state, entries: entries.slice(0, state.maxEntries) };
+      return { ...state, entries: trimEntries(entries, state.maxEntries) };
     }
     case 'UPDATE_ENTRY':
       return {
